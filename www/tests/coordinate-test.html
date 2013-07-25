@@ -1,0 +1,35 @@
+<!DOCTYPE html>
+<html>
+<head>
+<META HTTP-EQUIV="content-type" CONTENT="text/html; charset=utf-8">
+<script src="../js/coordinate.js" type="text/javascript"></script>
+<body>
+
+<h1>coordinate.js test</h1>
+<h2>Create Coordinate</h2>
+<script>
+var a = new Coordinate();
+document.write("undefined: " + a.toString() + "<br>");
+
+var b = new Coordinate(0, 0);
+document.write("new Coordinate(0, 0): " + b.toString() + "<br>");
+
+var b = new Coordinate(42.123456, 6.993456);
+document.write("new Coordinate(42.123456, 6.993456):  " + b.toString() + "<br>");
+
+var b = new Coordinate(-7.1, -0.99);
+document.write("new Coordinate(-7.1, -0.99): " + b.toString() + "<br>");
+
+a.tryParse(str = "N 56° 53.660 E 016° 52.218 ");
+document.write("from String " + str + ": " + a.toString() + "<br>");
+
+a.tryParse(str = "s 56° 53.6712 W 6 52.218 ");
+document.write("from String " + str + ": " + a.toString() + "<br>");
+
+a = new Coordinate(42.993967, -71.463767);
+b = new Coordinate(-2.123456, 1.764552);
+document.write("Distance between " + a.toString() + " and " + b.toString() + ": " + a.distanceTo(b) + "=" + b.distanceTo(a) + " (should be around 8816030)<br>");
+
+</script>
+</body>
+</html>

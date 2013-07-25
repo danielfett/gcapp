@@ -1,0 +1,19 @@
+<!DOCTYPE html>
+<html>
+<head>
+<META HTTP-EQUIV="content-type" CONTENT="text/html; charset=utf-8">
+<script src="../js/jquery-2.0.3.js" type="text/javascript"></script>
+<script src="../js/geocaching.js" type="text/javascript"></script>
+<body>
+
+<h1>geocaching.js test</h1>
+<script>
+document.write("Star image test (2): " 
++ geocaching._getRatingFromImage($.parseHTML("<img src='http://www.geocaching.com/images/stars/stars2.gif'>")[0]) + "<br>");
+document.write("Star image test (2.5): " 
++ geocaching._getRatingFromImage($.parseHTML("<img src='http://www.geocaching.com/images/stars/stars2_5.gif'>")[0]) + "<br>");
+document.write("Size from image (20): " 
++ geocaching._getSizeFromImage($.parseHTML("<img src='http://www.geocaching.com/images/icons/container/small.gif'>")[0]) + "<br>");
+</script>
+</body>
+</html>
