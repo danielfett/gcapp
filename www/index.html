@@ -28,48 +28,68 @@
   </head>
   <body>
     <div id="left-column">
-      <div class="displayline">
-	<div class="label left">Distance</div>
-	<div class="label right">Accuracy</div>
-      </div>
-      <div class="displayline">
-	<div class="value left" id="distance">1 km</div>
-	<div class="value right" id="positionalAccuracy">± 15.0 m</div>
-      </div>
-      <div id="compasswidget">
-	<div id="compass">
-	  <img src="img/arrow_target.svg" id="compassdirection">
+      <div id="navigationwidget">
+	<div class="displayline">
+	  <div class="label left">Distance</div>
+	  <div class="label right">Accuracy</div>
 	</div>
+	<div class="displayline">
+	  <div class="value left" id="distance">1 km</div>
+	  <div class="value right" id="positionalAccuracy">± 15.0 m</div>
+	</div>
+	<div id="compasswidget">
+	  <div id="compass">
+	    <img src="img/arrow_target.svg" id="compassdirection">
+	  </div>
+	</div>
+	<div class="displayline">
+	  <div class="label left">Altitude</div>
+	  <div class="label center">Bearing</div>
+	  <div class="label right">Dir. Accuracy</div>
+	</div>
+	<div class="displayline">
+	  <div class="value left" id="altitude">342 m</div>
+	  <div class="value center" id="bearing">54°</div>
+	  <div class="value right" id="directionalAccuracy">100%</div>
+	</div>
+	<div class="label displayline">Current Position</div>
+	<div class="value displayline" id="position">N&#8198;49°&#8198;44.837' E&#8198;6°&#8197;41.337'</div>
+	<div class="label displayline">Current Target</div>
+	<div class="value displayline" id="target">S&#8198;29°&#8198;44.837' E&#8198;126°&#8197;43.387'</div>
+	<button onclick='ui.onPositionUpdate()'>test</button>
       </div>
-      <div class="displayline">
-	<div class="label left">Altitude</div>
-	<div class="label center">Bearing</div>
-	<div class="label right">Dir. Accuracy</div>
-      </div>
-      <div class="displayline">
-	<div class="value left" id="altitude">342 m</div>
-	<div class="value center" id="bearing">54°</div>
-	<div class="value right" id="directionalAccuracy">100%</div>
-      </div>
-      <div class="label displayline">Current Position</div>
-      <div class="value displayline" id="position">N49°44.837' E6°41.337'</div>
-      <div class="label displayline">Current Target</div>
-      <div class="value displayline" id="target">S29°44.837' E126°43.387'</div>
-      <button onclick='ui.onPositionUpdate()'>test</button>
     </div>
     <div id="right-column">
       <div id="map">
       </div>
     </div>
     <script type="text/javascript" src="cordova.js"></script>
-    <script type="text/javascript" src="js/jquery-2.0.3.js"></script>
-    <script type="text/javascript" src="js/jquery.rotate-1.0.1.js"></script>
+    <script type="text/javascript" src="lib/jquery-2.0.3.js"></script>
+    <script type="text/javascript" src="lib/jquery.rotate-1.0.1.js"></script>
+    <script type="text/javascript" src="lib/jquery.mobile-1.3.1.js"></script>
+    <script type="text/javascript" src="lib/persistence.js"></script>
+    <script type="text/javascript" src="lib/persistence.store.sql.js"></script>
+    <script type="text/javascript" src="lib/persistence.store.websql.js"></script>
+    <script type="text/javascript" src="lib/persistence.search.js"></script>
     <script type="text/javascript" src="lib/openlayers/OpenLayers.mobile.js"></script>
+    <script type="text/javascript" src="js/coordinate.js"></script>
+    <script type="text/javascript" src="js/datatypes.js"></script>
+    <script type="text/javascript" src="js/simulate-geocaching.js"></script>
+    <script type="text/javascript" src="js/geocaching.js"></script>
     <script type="text/javascript" src="js/index.js"></script>
     <script type="text/javascript">
       app.initialize();
       $(document).ready(function() {
         ui.initialize();
+      
+      var gc = new Geocaching();
+      gc.ensureLogin('AGTLTestUser', '5dc60db7d5c7a86364c44091a')
+      .done(function() {
+      gc.test();
+      })
+      .fail(function(error) {
+      alert(error);
+      });
       });
     </script>
   </body>

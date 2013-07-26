@@ -70,13 +70,18 @@ body {
     height: 100%;
 }
 
-/* Compass widget */
+/* Navigation widget */
+
+#navigationwidget {
+    position: relative;
+    margin: 1em;
+}
 
 #compasswidget {
     margin-left: auto;
     margin-right: auto;
+    margin-bottom: 1em;
     bottom: 0px;
-    border: 1px solid blue;
     position: relative;
     width: 100%;
 }

@@ -10,15 +10,29 @@
     137: 'EARTH'
   }
 
+  var LOG_TYPE_CODE = {
+    2: 'found',
+    3: 'did not find',
+    4: 'write note',
+    7: 'needs archived',
+    45: 'needs maintenance'
+  }
+
   var MAX_DOWNLOAD_NUM = 100;
 
   Geocaching = function() {
-
+    if (SIMULATE_GC) {
+      console.debug("Geocaching.js running in simulation mode.");
+    }
   }
 
+  /**
+   * Make sure that the user with the given user name (and password)
+   * is logged in.
+   */
   Geocaching.prototype.ensureLogin = function(username, password) {
     var dfd = new $.Deferred();
-    this.checkLogin()
+    checkLogin.call(this)
     .done(function(loggedInUser, indexDocument) {
       if (loggedInUser == undefined || loggedInUser.toLowerCase() != username.toLowerCase()) {
 	if (loggedInUser == undefined) {
@@ -26,7 +40,7 @@
 	} else {
 	  console.debug("User '" + loggedInUser + "' is logged in, but '" + username + "' is supposed to. Loggin in again.");
 	}
-	this.login(indexDocument, username, password)
+	login.call(this, indexDocument, username, password)
 	.done(function() {
 	  dfd.resolve("Login successful.");
 	})
@@ -47,6 +61,11 @@
     return dfd.promise();
   }
 
+  /**
+   * This test function is currently called when the document has
+   * finished loading and the user is logged in. You may add stuff
+   * here.
+   */
   Geocaching.prototype.test = function() {
     //this.readGeocache('c73299e3-f31b-489b-8d02-3db49e8b7816')
     /*this.readGeocache('GC2CMHW')
@@ -58,11 +77,11 @@
       alert(msg);
       });
      */
-    var instance = this;
+    var _this = this;
     this.getListOfGeocaches(new Coordinate(49.777, 6.666), new Coordinate(49.750, 6.650))
     .done(function(list) {
       console.debug(list);
-      instance.downloadGeocachesInList(list)
+      _this.downloadGeocachesInList(list)
       .done(function(list){
         alert(list);
         console.debug($(list).serialize());
@@ -76,26 +95,175 @@
     });
   }
 
-  Geocaching.prototype.checkLogin = function() {
+  /**
+   * Retrieve a geocache from the local database and return it;
+   * If the geocache is not in the local database, retrieve it.
+   */
+  Geocaching.prototype.getGeocache = function(id) {
+    var dfd = new $.Deferred();
+    Geocache.findBy('gcid', id, function(geocache) {
+      if (geocache == null) {
+        this.updateGeocache(id)
+        .done(function(geocache){
+          dfd.resolve(geocache);
+        })
+        .fail(function(msg){
+          dfd.reject(msg);
+        });
+      } else {
+        dfd.resolve(geocache);
+      }
+    });
+    return dfd.promise();
+  }
+
+
+  /**
+   * Update a geocache (identified by the GCID) in the local database;
+   * If it is not in there, download it.
+   */
+  Geocaching.prototype.updateGeocache = function(id) {
+    var dfd = new $.Deferred();
+    var _this = this;
+
+    // Simulation can be enabled by including the simulate-geocaching.js file.
+    if (SIMULATE_GC) {
+      dfd.resolve(parseCacheDocument.call(this, CACHE_DOC));
+      return dfd.promise();
+    }
+
+    // Fetch geocache from URL
+    var url = 'http://www.geocaching.com/seek/cache_details.aspx?wp=' + id;
+    readUrl.call(this, url)
+    .done(function(doc){
+      // Check if geocache is in DB, if not create it.
+      Geocache.findBy('gcid', id, function(geocache) {
+        if (geocache == null) {
+          geocache = new Geocache();
+          persistence.add(geocache);
+        }
+        dfd.resolve(parseCacheDocument.call(_this, doc, geocache));
+      });
+    })
+    .fail(function(msg){
+      dfd.reject(msg);
+    });
+
+    return dfd.promise();
+  }
+
+  /**
+   * Retrieve a list of geocaches that are in the rectangle area
+   * defined by the two given coordinate. Actually, a circular area is
+   * searched that is bigger than the given rectangle.
+   *
+   * The list that is returned can be used with downloadGeocachesInList.
+   */
+  Geocaching.prototype.getListOfGeocaches = function(coordinate1, coordinate2) {
+    var dfd = new $.Deferred();
+    var _this = this;
+
+    // Simulation can be enabled by including the simulate-geocaching.js file.
+    if (SIMULATE_GC) {
+      dfd.resolve({dummy: 'dummy'});
+      return dfd.promise();
+    }
+
+    var center = new Coordinate(
+      (coordinate1.lat + coordinate2.lat)/2,
+      (coordinate1.lon + coordinate2.lon)/2);
+    var dist = (center.distanceTo(coordinate1)/1000)/2;
+    var url = 'http://www.geocaching.com/seek/nearest.aspx?lat=' + center.lat + '&lng=' + center.lon + '&dist=' + dist;
+
+    readUrl.call(this, url)
+    .done(function(doc){
+      fetchListRecursively.call(_this, dfd, doc, [], 0);
+    })
+    .fail(function(msg){
+      dfd.reject(msg);
+    });
+    return dfd.promise();
+  }
+
+  /**
+   * Download all geocaches that are contained in the given list. If
+   * updateExisting is true, update geocaches that are already in the
+   * local database. Returns (via Deferred) an array containing the
+   * Geocache objects.
+   *
+   * TODO: Check if this fully works, build some better test case.
+   *
+   * TODO: It would be nice to have some sort of smart strategy to
+   * update the geocaches. For example, one could update only those
+   * geocaches that are older than 14 days.
+   */
+  Geocaching.prototype.downloadGeocachesInList = function(list, updateExisting) {
     var dfd = new $.Deferred();
 
-    var loggedIn = false;
+    // Simulation can be enabled by including the simulate-geocaching.js file.
+    if (SIMULATE_GC) {
+      dfd.resolve({dummy: 'dummy', cache: this.readGeocache('dummy')});
+      return dfd.promise();
+    }
+
+    var action = updateExisting ? this.updateGeocache : this.getGeocache;
+
+    var counter = list.length;
+    var output = [];
+    for (var i in list) {
+      action(list[i])
+      .done(function(cache){
+        output.push(cache);
+        counter -= 1;
+        if (! counter) {
+          dfd.resolve(output);
+        }
+      })
+      .fail(function(msg){
+        console.debug("Failed to download cache: " + msg);
+        counter -= 1;
+        if (! counter) {
+          dfd.resolve(output);
+        }
+      });
+    }
+
+    return dfd.promise();
+  }
+
+  /**
+   * Check is a user is logged in and if so, which.
+   *
+   * Returns (via Deferred) the name of the logged in user (or
+   * undefined) and a geocaching.com document that can be used, e.g.,
+   * for logging in.
+   */
+  function checkLogin() {
+    var dfd = new $.Deferred();
+
+    // Simulation can be enabled by including the simulate-geocaching.js file.
+    if (SIMULATE_GC) {
+      dfd.resolve('AGTLTestUser', undefined);
+      return dfd.promise();
+    }
+
+    // Retrieve the home page.
+    //
+    // TODO: Check if other pages of the web
+    // site load faster and then use these instead here.
     $.ajax({
       url: 'http://www.geocaching.com',
       xhrFields: { withCredentials: true }
     })
     .done(function(data) {
       var doc = $('<output>').append($.parseHTML(data));
-      if ($('#ctl00_divNotSignedIn', doc).length) {
-	console.debug("Not signed in; #ctl00_divNotSignedIn is present.");
+      var status = checkLoginStatus.call(doc);
+      if (status === false) {
 	dfd.resolve(undefined, doc);
-      } else if ($('#ctl00_divSignedIn', doc).length) {
-	console.debug("User is signed in; #ctl00_divSignedIn is present.");
-	dfd.resolve($('a.SignedInProfileLink', doc).text());
+      } else if (status === undefined){
+	dfd.reject("Failed to check login status. Maybe you have to update this application.");
       } else {
-	console.debug("Cannot determine whether user is signed in...");
-	console.debug("...assuming 'no'.");
-	dfd.resolve(undefined, doc);
+	dfd.resolve(status);
       }
     })
     .fail(function() {
@@ -105,8 +273,20 @@
     return dfd.promise();
   }
 
-  Geocaching.prototype.login = function(doc, username, password) {
+  /**
+   * Perform a login. Needs some document doc that contains the login
+   * form.
+   *
+   * Checks if the login was successful.
+   */
+  function login(doc, username, password) {
     var dfd = new $.Deferred();
+
+    // Simulation can be enabled by including the simulate-geocaching.js file.
+    if (SIMULATE_GC) {
+      dfd.reject("Cannot log in in simulation mode.");
+      return dfd.promise();
+    }
 
     console.debug("Starting login.");
     var formData = $('form', doc).serializeArray();
@@ -125,20 +305,17 @@
       xhrFields: { withCredentials: true }
     })
     .done(function(data) {
-      var loggedInDocument = $('<output>').append($.parseHTML(data));
-      if ($('#ctl00_ContentBody_lbUsername', loggedInDocument).length) {
-	console.debug("User is signed in; " +
-		      "#ctl00_ContentBody_lbUsername is present.");
-	dfd.resolve();
-      } else if ($('#ctl00_divNotSignedIn', loggedInDocument).length
-	       || $('#ctl00_ContentBody_cvLoginFailed', loggedInDocument).length) {
-	console.debug("User is not signed in; " +
-		      "#ctl00_ContentBody_cvLoginFailed or " +
-		      "#ctl00_divNotSignedIn is present.");
-	dfd.reject('Username or password wrong, or some other error.');
+      var doc = $('<output>').append($.parseHTML(data));
+
+      // Now check whether we are really logged in.
+      var status = checkLoginStatus(doc);
+      if (status === false) {
+        dfd.reject('Username or password wrong, or some other error.');
+      } else if (status === undefined) {
+        dfd.reject('Cannot determine whether login was successful.'
+                  + ' Maybe you need to update this application.');
       } else {
-	console.debug("Cannot determine whether login was successful.");
-	dfd.reject('Cannot determine whether login was successful.');
+        dfd.resolve();
       }
     })
     .fail(function(xhr, status, error) {
@@ -150,80 +327,55 @@
     return dfd.promise();
   }
 
-  Geocaching.prototype.readGeocache = function(id) {
-    var dfd = new $.Deferred();
-    var idstr = (id.length > 8) ? ('guid=' + id) : ('wp=' + id);
-
-    console.debug("Reading geocache with " + idstr);
-
-    var url = 'http://www.geocaching.com/seek/cache_details.aspx?' + idstr;
-
-    var instance = this;
-    readUrl.call(this, url)
-    .done(function(doc){
-      dfd.resolve(parseCacheDocument.call(instance, doc));
-    })
-    .fail(function(msg){
-      dfd.reject(msg);
-    });
-
-    return dfd.promise();
-  }
-
-  Geocaching.prototype.getListOfGeocaches = function(coordinate1, coordinate2) {
-    var center = new Coordinate(
-      (coordinate1.lat + coordinate2.lat)/2,
-      (coordinate1.lon + coordinate2.lon)/2);
-    var dist = (center.distanceTo(coordinate1)/1000)/2;
-    var url = 'http://www.geocaching.com/seek/nearest.aspx?lat=' + center.lat + '&lng=' + center.lon + '&dist=' + dist;
-
-    var dfd = new $.Deferred();
-
-    var instance = this;
-    readUrl.call(this, url)
-    .done(function(doc){
-      fetchListRecursively.call(instance, dfd, doc, [], 0);
-    })
-    .fail(function(msg){
-      dfd.reject(msg);
-    });
-    return dfd.promise();
-  }
-
-  Geocaching.prototype.downloadGeocachesInList = function(list) {
-    var dfd = new $.Deferred();
-    var counter = list.length;
-    for (var i in list) {
-      this.readGeocache(list[i].guid)
-      .done(function(cache){
-        list[i].cache = cache;
-        counter -= 1;
-        if (! counter) {
-          dfd.resolve(list);
-        }
-      })
-      .fail(function(msg){
-        counter -= 1;
-        console.debug("Failed to download cache " + list[i].gcid);
-        if (! counter) {
-          dfd.resolve(list);
-        }
-      });
+  /**
+   * Check a document for signs of a logged in user.
+   *
+   * Returns false (not logged in), undefined (cannot determine
+   * status) or a user name.
+   */
+  function checkLoginStatus(doc) {
+    if ($('#ctl00_divNotSignedIn', doc).length
+      || $('#ctl00_ContentBody_cvLoginFailed', doc).length) {
+      console.debug("Not signed in; #ctl00_divNotSignedIn is present.");
+      return false;
+    } else if ($('#ctl00_divSignedIn', doc).length) {
+      console.debug("User is signed in; #ctl00_divSignedIn is present.");
+      return $('a.SignedInProfileLink', doc).text();
+    } else {
+      // This should never happen, but it may.
+      return undefined;
     }
-
-    return dfd.promise();
   }
 
+  /**
+   * Walk through the pages of the geocache listing at
+   * geocaching.com. Parse out all geocaches (their gcids). Then
+   * proceed with the next page by calling this function again.
+   *
+   * dfd - a Deferred object that we can call reject or resolve on.
+   *
+   * doc - the document that is to be parsed.
+   *
+   * wpts - the list of gcids so far
+   *
+   * page_last - the number of the page that was parsed last. If this
+   * does not increment, abort (preventing infinite loops).
+   */
   function fetchListRecursively(dfd, doc, wpts, page_last) {
-    console.debug("Fetching list of geocaches, currently " + wpts.length + " fetched; last page was number " + page_last);
     var bs = $('#ctl00_ContentBody_ResultsPanel .PageBuilderWidget b', doc);
+
+    // Nothing to see here, move on.
     if (bs.length == 0) {
       dfd.reject("There are no geocaches in this area.");
       return;
     }
+
+    // Retrieve some numbers from the top pagination widget.
     var count = parseInt($(bs[0]).text());
     var page_current = parseInt($(bs[1]).text());
     var page_max = parseInt($(bs[2]).text());
+
+    // Stop if we do not proceed.
     if (page_current == page_last) {
       dfd.reject("Current page has the same number as the last page; aborting!");
       return;
@@ -236,32 +388,39 @@
 		 + ", total "
 		 + count
 		 + " geocaches.");
+
+    // Stop if there are too many geocaches in this area. Nobody wants
+    // to wait for the retrieval of 1000 geocaches.
     if (count > MAX_DOWNLOAD_NUM) {
       dfd.reject("Found " + count + " geocaches in this area. Please select a smaller part of the map.");
       return;
     }
 
+    // Add what we've found to the result set.
     $('.SearchResultsTable .Merge .small', doc).each(function(index, item) {
-      wpts.push({
-	guid: $(item).parent().children(':first-child').attr('href').split('guid=')[1],
-	found: ($(item).parent().parent().attr('class').search('TertiaryRow') != -1),
-	gcid: $(item).text().split('|')[1].trim()
-      });
+      wpts.push($(item).text().split('|')[1].trim());
     });
 
+    // Proceed if there are more pages.
     if (page_current < page_max) {
+
+      // Get all form data and change it...
       var formData = $('form', doc).serializeArray();
       $.each(formData, function(index, value) {
 	if (value.name == '__EVENTTARGET') {
+          // Change this value, we have 'clicked' on the "next" button.
 	  formData[index].value = 'ctl00$ContentBody$pgrTop$ctl08';
 	} else if (value.name == 'ctl00$ContentBody$chkAll') {
+          // Remove this value, for some reason.
 	  formData.splice(index, 1);
 	}
       });
 
+      // Form target URL
       url = 'http://www.geocaching.com/seek/' + $('form', doc).attr('action');
       readUrl.call(this, url, formData, 'POST')
       .done(function(doc){
+        // Recurse to infinity and beyond.
 	fetchListRecursively.call(this, dfd, doc, wpts, page_last);
 	return;
       })
@@ -276,6 +435,12 @@
     }
   }
 
+  /**
+   * Another wrapper for XMLHTTPRequest. Retrieves a page from
+   * geocaching.com with all the right settings (e.g., including
+   * cookies). Checks if there is an error message saying that the
+   * user is not logged in anymore.
+   */
   function readUrl(url, data, method) {
     var dfd = new $.Deferred();
     console.debug("-> Fetching " + url);
@@ -306,45 +471,127 @@
     return dfd.promise();
   }
 
-  function parseCacheDocument(doc) {
+  /**
+   * Parse a geocache overview page (doc) and update the geocache
+   * (cache) with the data.
+   */
+  function parseCacheDocument(doc, cache) {
     var coordinate = new Coordinate();
     coordinate.tryParse($('.uxLatLon', doc).text());
-    var cache = {
-      source: 'geocaching.com',
-      parseDate: (new Date()).getTime(),
-      guid: $('link[rel="canonical"]', doc).attr('href').split('=')[1], //todo: investigate undefined here
-      gcid: $('.CoordInfoCode', doc).text(),
-      coord: coordinate,
-      title: $('meta[name="og:title"]', doc).attr('content'),
-      owner: $('#ctl00_ContentBody_mcd1 a', doc).text(),
-      rawHiddenDate: $('#ctl00_ContentBody_mcd2', doc).text().trim(), // simplify?
-      difficulty: _getRatingFromImage.call(this, $('#ctl00_ContentBody_diffTerrStars img', doc)[0]),
-      terrain: _getRatingFromImage.call(this, $('#ctl00_ContentBody_diffTerrStars img', doc)[1]),
-      size: _getSizeFromImage.call(this, $('.minorCacheDetails img', doc)),
-      type: _getTypeFromImage.call(this, $('.cacheImage img', doc)),
-      shortdesc: $('#ctl00_ContentBody_ShortDescription', doc).text().trim(),
-      hint: _rot13.call(this, $('#div_hint', doc).text().trim()),
-      attributes: _getAttributesFromImages.call(this, $('#ctl00_ContentBody_detailWidget div.WidgetBody img', doc)),
-      desc: $('#ctl00_ContentBody_LongDescription', doc).html(),
-      stats: {
-	findCount: parseInt($('.InformationWidget h3', doc).text().trim())
-      }
-    } ;
-    console.debug("Cache: " + JSON.stringify(cache));
+
+    // Source is web site where this cache was loaded from
+    cache.source = 'geocaching.com';
+
+    // Date when the cache was last updated
+    cache.parseDate = (new Date()).getTime();
+
+    // GUID is a unique ID for all geocaching.com caches
+    cache.guid = $('link[rel="canonical"]', doc).attr('href').split('=')[1];
+
+    // The well-known GC... code
+    cache.gcid = $('.CoordInfoCode', doc).text();
+
+    // The coordinates (lat/lon)
+    //cache.lat = coordinate.lat;
+    //cache.lon = coordinate.lon;
+    cache.coordinate(coordinate);
+
+    // The title (name) of the geocache
+    cache.title = $('meta[name="og:title"]', doc).attr('content');
+
+    // The owner of the geocache, note that this might not map to an
+    // actual user name at geocaching.com
+    cache.owner = $('#ctl00_ContentBody_mcd1 a', doc).text();
+
+    // The date when this cache was hidden.
+    // As we have different date formats depending on the language settings,
+    // we do not parse this for now.
+    cache.rawHiddenDate = $('#ctl00_ContentBody_mcd2', doc).text().trim();
+
+    // Difficulty, from 10 to 50.
+    cache.difficulty = _getRatingFromImage.call(this, $('#ctl00_ContentBody_diffTerr img:eq(0)', doc));
+
+    // Terrain, as above.
+    cache.terrain = _getRatingFromImage.call(this, $('#ctl00_ContentBody_diffTerr img:eq(1)', doc));
+
+    // Size, from 10 to 40 or -1 if not set.
+    cache.size = _getSizeFromImage.call(this, $('.minorCacheDetails img', doc));
+
+    // Type, see TYPE_STRINGS above
+    cache.type = _getTypeFromImage.call(this, $('.cacheImage img', doc));
+
+    // The short description.
+    cache.shortdesc = $('#ctl00_ContentBody_ShortDescription', doc).text().trim();
+
+    // The hint, we save it in a decoded form.
+    cache.hint = _rot13.call(this, $('#div_hint', doc).text().trim());
+
+    // The cache's attributes need special attention...
+    var attributes = _getAttributesFromImages.call(this, $('#ctl00_ContentBody_detailWidget div.WidgetBody img', doc));
+    for (index in attributes) {
+      console.debug("Adding attribute " + attributes[index]);
+      addAttribute.call(this, attributes[index], cache);
+    }
+
+    // The long description
+    cache.desc = $('#ctl00_ContentBody_LongDescription', doc).html();
+
+    // The cache stats
+    cache.stats = {
+      findCount: parseInt($('.InformationWidget h3', doc).text().trim())
+    };
+
+    // Whether the user has found the cache already
+    cache.found = (
+      $('ctl00_ContentBody_GeoNav_logTypeImage', doc).length
+                  && _basename.call(this, $('ctl00_ContentBody_GeoNav_logTypeImage', doc).attr('src')) == '3');
+
+    persistence.flush();
     return cache;
   }
 
+  /**
+   * Check if an attribute is already in the database. If not so, add
+   * it. Then add the attribute to the given geocache.
+   */
+  function addAttribute(name, cache) {
+    var existingAttribute = Attribute.all().filter('source', '=', 'geocaching.com').filter('name', '=', name);
+    console.debug("Adding attribute " + name);
+    existingAttribute.one(function(tx, attrib) {
+      if (attrib == null) {
+        attrib = new Attribute({
+          source: 'geocaching.com',
+          name: name
+        });
+      }
+      console.debug("-- adding attribute" + attrib.name);
+      // We add the attribute regardless of whether it is already there. Check what persistence.js does with it.
+      cache.attributes.add(attrib);
+    });
+  }
+
+  /**
+   * From a full file path or url, strip the path and the extension.
+   *
+   * e.g., http://example.com/bla/bla/test.gif -> test
+   */
   function _basename(s) {
     var path = s.split('/')
     return path[path.length-1].split('.')[0]
   }
 
+  /**
+   * Parse the image file names from these "stars" images.
+   */
   function _getRatingFromImage(img) {
-    var basename = _basename.call(this, $(img).attr('src'));
+    var basename = _basename.call(this, img.attr('src'));
     var ratingStr = basename.replace(/[^0-9_]/g, '').replace(/_/, '.');
     return Math.round(parseFloat(ratingStr)*10);
   }
 
+  /**
+   * Translate the filename of the image to a size of a geocache.
+   */
   function _getSizeFromImage(img) {
     var sizestring = _basename.call(this, $(img).attr('src'));
     switch (sizestring) {
@@ -364,11 +611,17 @@
     }
   }
 
+  /**
+   * Get the type of a geocache from the image URL.
+   */
   function _getTypeFromImage(img) {
     var type_string = _basename.call(this, $(img).attr('src'));
     return TYPE_STRINGS.type_string;
   }
 
+  /**
+   * What do you expect?
+   */
   function _rot13(s) {
     return s.split('').map(function(_) {
 	     if (!_.match(/[A-Za-z]/)) return _;
@@ -378,6 +631,10 @@
 	   }).join('');
   }
 
+  /**
+   * From a list of images that visualize attributes, retrieve strings
+   * that represent the attributes.
+   */
   function _getAttributesFromImages(imgs) {
     var attrs = [];
     var attr;
