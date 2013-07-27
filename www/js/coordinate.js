@@ -30,11 +30,13 @@ Number.prototype.format = function(numZeros, numDecimals) {
   var RADIUS_EARTH = 6371000.0;
 
   /**
-   * Create a new Coordinate object, with lat an lon given as floats.
+   * Create a new Coordinate object, with lat, lon and alt (for
+   * altitude) given as floats.
    */
-  Coordinate = function(lat, lon) {
+  Coordinate = function(lat, lon, alt) {
     this.lat = lat;
     this.lon = lon;
+    this.alt = alt;
   }
 
   /**

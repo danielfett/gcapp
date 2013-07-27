@@ -24,7 +24,7 @@
     <meta name="viewport" content="user-scalable=no, initial-scale=1, maximum-scale=1, minimum-scale=1, width=device-width, height=device-height, target-densitydpi=device-dpi" />
     <link rel="stylesheet" type="text/css" href="css/index.css" />
     <link rel="stylesheet" type="text/css" href="lib/openlayers/theme/default/style.mobile.css" />
-    <title>Hello World</title>
+    <title>GCApp</title>
   </head>
   <body>
     <div id="left-column">
@@ -78,21 +78,6 @@
     <script type="text/javascript" src="js/simulate-geocaching.js"></script>
     <script type="text/javascript" src="js/geocaching.js"></script>
     <script type="text/javascript" src="js/index.js"></script>
-    <script type="text/javascript">
-      app.initialize();
-      $(document).ready(function() {
-        ui.initialize();
-     
-      
-      var gc = new Geocaching();
-      gc.ensureLogin('AGTLTestUser', '5dc60db7d5c7a86364c44091a')
-      .done(function() {
-      gc.test();
-      })
-      .fail(function(error) {
-      alert(error);
-      });
-      });
-    </script>
+
   </body>
 </html>
