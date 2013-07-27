@@ -142,9 +142,16 @@
     var dfd = new $.Deferred();
     var _this = this;
 
-    // Simulation can be enabled by including the simulate-geocaching.js file.
+    // Simulation can be enabled by including the
+    // simulate-geocaching.js file.
+    //
+    // TODO: This will fail if the geocache is already in the
+    // database. Instead, one could handle simulation in readUrl and
+    // just provide dummy documents to the calling method there.
     if (SIMULATE_GC) {
-      dfd.resolve(parseCacheDocument.call(this, CACHE_DOC, new Geocache()));
+      var gc = new Geocache();
+      persistence.add(gc);
+      dfd.resolve(parseCacheDocument.call(this, CACHE_DOC, gc));
       return dfd.promise();
     }
 

@@ -1,7 +1,7 @@
 console.debug("PERSISTENCE: Defining Database...");
 
 // initialize database ORM
-persistence.store.websql.config(persistence, 'gcdb', 'Geocache database', 15 * 1024 * 1024);
+persistence.store.websql.config(persistence, 'gcdb-1.0', 'Geocache database', 15 * 1024 * 1024);
 
 // initialize full text search:
 persistence.search.config(persistence, persistence.store.websql.sqliteDialect);
@@ -27,7 +27,7 @@ var Geocache = persistence.define('Geocache', {
   found: 'BOOL'
 });
 
-Geocache.index('gcid');
+Geocache.index(['source', 'gcid'],{unique:true});
 Geocache.index(['lat', 'lon']);
 Geocache.index('found');
 
@@ -36,7 +36,7 @@ var Attribute = persistence.define('Attribute', {
   name: 'TEXT'
 });
 
-Attribute.index(['source', 'name']);
+Attribute.index(['source', 'name'],{unique:true});
 
 var Waypoint = persistence.define('Waypoint', {
   source: 'TEXT',
@@ -47,7 +47,7 @@ var Waypoint = persistence.define('Waypoint', {
   lon: 'REAL',
 });
 
-Waypoint.index('wpid');
+Waypoint.index(['source', 'wpid'],{unique:true});
 
 var Log = persistence.define('Log', {
   source: 'TEXT',
@@ -56,7 +56,7 @@ var Log = persistence.define('Log', {
   text: 'TEXT'
 });
 
-Log.index(['source', 'datetime', 'user']);
+Log.index(['source', 'datetime', 'user'],{unique:true});
 
 /*var Stats = persistence.define('Stats', {
   findCount: 'INT'
