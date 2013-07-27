@@ -34,8 +34,8 @@
 	  <div class="label right">Accuracy</div>
 	</div>
 	<div class="displayline">
-	  <div class="value left" id="distance">1 km</div>
-	  <div class="value right" id="positionalAccuracy">± 15.0 m</div>
+	  <div class="value left" id="distance">?</div>
+	  <div class="value right" id="positionalAccuracy">?</div>
 	</div>
 	<div id="compasswidget">
 	  <div id="compass">
@@ -48,15 +48,15 @@
 	  <div class="label right">Dir. Accuracy</div>
 	</div>
 	<div class="displayline">
-	  <div class="value left" id="altitude">342 m</div>
-	  <div class="value center" id="bearing">54°</div>
+	  <div class="value left" id="altitude">?</div>
+	  <div class="value center" id="bearing">?</div>
 	  <div class="value right" id="directionalAccuracy">100%</div>
 	</div>
 	<div class="label displayline">Current Position</div>
-	<div class="value displayline" id="position">N&#8198;49°&#8198;44.837' E&#8198;6°&#8197;41.337'</div>
+	<div class="value displayline" id="position">?</div>
 	<div class="label displayline">Current Target</div>
-	<div class="value displayline" id="target">S&#8198;29°&#8198;44.837' E&#8198;126°&#8197;43.387'</div>
-	<button onclick='ui.onPositionUpdate()'>test</button>
+	<div class="value displayline" id="target">?</div>
+	<button onclick='app.navstate.setTarget(new Coordinate(49.7777777, 6.66666666));'>test</button>
       </div>
     </div>
     <div id="right-column">

@@ -86,6 +86,21 @@ Number.prototype.format = function(numZeros, numDecimals) {
   }
 
   /**
+   * Calculate the bearing (relative to north) for the shortest way
+   * between this point and the given point.
+   */
+  Coordinate.prototype.bearingTo = function(target) {
+    var lat1 = this.lat * Math.PI / 180.0;
+    var lat2 = target.lat * Math.PI / 180.0;
+
+    var dlon = (target.lon - this.lon) * Math.PI / 180.0;
+    var y = Math.sin(dlon) * Math.cos(lat2);
+    var x = Math.cos(lat1) * Math.sin(lat2) - Math.sin(lat1) * Math.cos(lat2) * Math.cos(dlon);
+    var bearing = Math.atan2(y, x)  * 180.0 / Math.PI;
+    return (360.0 + bearing) % 360.0;
+  }
+
+  /**
    * Return a nicely formatted string in Degree-Minute notation.
    */
   Coordinate.prototype.toString = function() {
@@ -114,7 +129,6 @@ Number.prototype.format = function(numZeros, numDecimals) {
   function getLatD(space) {
     if (! space) space = ' ';
     var l = Math.abs(this.lat);
-    console.debug(l);
     var sign = (this.lat > 0) ? 'N' : 'S';
     return sign
          + space

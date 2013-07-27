@@ -53,9 +53,17 @@
    * target.
    */
   Navstate.prototype.updatePosition = function(newlat, newlon, newalt, acc, altacc) {
-    this.position = new Coordinate(newlat, newlon, newalt);
-    this.accuracy = acc;
-    this.altitudeAccuracy = altacc;
+    if (! newlat) {
+      this.position = undefined;
+      this.accuracy = undefined;
+      this.altitudeAccuracy = undefined;
+      console.debug("Undefined position.");
+    } else {
+      this.position = new Coordinate(newlat, newlon, newalt);
+      this.accuracy = acc;
+      this.altitudeAccuracy = altacc;
+      console.debug("Position updated to " + this.position.toString());
+    }
     this.triggerEvent('positionChanged', this.position);
     updateBearingDistance.call(this);
     this.triggerEvent('accuracyChanged', this.accuracy);
@@ -84,6 +92,7 @@
     }
     this.triggerEvent('bearingChanged',  this.bearing);
     this.triggerEvent('distanceChanged', this.distance);
+    console.debug("bearing and distance changed to " + this.bearing + " / " + this.distance);
   }
 
 })(this);
@@ -152,28 +161,56 @@ var ui = {
       zoom: 13
     });
 
-   // Show an initial position - for testing only.
-    this.mapPosition =  new OpenLayers.Feature.Vector(
+    // Show the position indicator
+    // TODO: Better initial position (or disabled?)
+    // TODO: Styling of this and the next indicator
+    this.mapPosition = new OpenLayers.Feature.Vector(
       new OpenLayers.Geometry.Point(6.6666666, 49.7777777).transform(
         new OpenLayers.Projection("EPSG:4326"),
         new OpenLayers.Projection("EPSG:900913")));
 
-    this.vectorLayer.addFeatures([this.mapPosition]);
+    // Show the target
+    // TODO: Styling
+    this.targetPosition = new OpenLayers.Feature.Vector(
+      new OpenLayers.Geometry.Point(6.6666666, 49.7777777).transform(
+        new OpenLayers.Projection("EPSG:4326"),
+        new OpenLayers.Projection("EPSG:900913")));
+
+    this.vectorLayer.addFeatures([this.mapPosition, this.targetPosition]);
   },
 
   /**
    * Event coming from the navstate.
    */
   onPositionChanged: function(event, position) {
-    ui.mapPosition
-    .move(new OpenLayers.LonLat(position.lon, position.lat)
-          .transform(
-            new OpenLayers.Projection("EPSG:4326"),
-            new OpenLayers.Projection("EPSG:900913")));
-    $('#position').html(position.toHtml());
-    // TODO: Include a function that formats distances nicely (see
-    // AGTL)
-    $('#altitude').text(position.alt);
+    if (position) {
+
+      ui.mapPosition
+      .move(new OpenLayers.LonLat(position.lon, position.lat)
+            .transform(
+              new OpenLayers.Projection("EPSG:4326"),
+              new OpenLayers.Projection("EPSG:900913")));
+
+      $('#position').html(position.toHTML());
+      // TODO: Include a function that formats distances nicely (see
+      // AGTL)
+      //
+      // TODO: WTF? Why is the altitude a string "null" when not set
+      // (and not the value null)?!  The W3C standard has this to say
+      // on this topic:
+      //
+      //    The altitude attribute denotes the height of the position,
+      //    specified in meters above the [WGS84] ellipsoid. If the
+      //    implementation cannot provide altitude information, the
+      //    value of this attribute must be
+      //    null. (http://www.w3.org/TR/geolocation-API/)
+      //
+      // But "null" is not specified further (at least not in this
+      // document itself).
+      $('#altitude').text((position.alt != 'null') ? '?' : position.alt);
+    } else {
+      // TODO: Hide position if not available.
+    }
   },
 
 
@@ -202,7 +239,18 @@ var ui = {
    * Event coming from the navstate.
    */
   onTargetChanged: function(event, target) {
-    $('#target').html(target.toHTML());
+    if (target) {
+      // TODO: Hide when no target set.
+      ui.targetPosition
+      .move(new OpenLayers.LonLat(target.lon, target.lat)
+            .transform(
+              new OpenLayers.Projection("EPSG:4326"),
+              new OpenLayers.Projection("EPSG:900913")));
+
+      $('#target').html(target.toHTML());
+    } else {
+      $('#target').text("(no target set)");
+    }
   },
 
   /**
@@ -211,7 +259,10 @@ var ui = {
   onAccuracyChanged: function(event, accuracy) {
     // TODO: Include a function that formats distances nicely (see
     // AGTL)
-    $('#accuracy').text('± ' + accuracy);
+    //
+    // TODO: Visualize accuracy on map, e.g., with a circle around the
+    // current position
+    $('#positionalAccuracy').text('± ' + accuracy);
   },
 
   /**
@@ -220,6 +271,8 @@ var ui = {
   onCompassUpdate: function(heading) {
     //console.debug("New heading: " + heading.trueHeading);
     $('#compass').jqrotate(-heading.trueHeading);
+    $('#bearing').text(heading.trueHeading);
+    $('#directionalAccuracy').text('± ' + heading.headingAccuracy);
   },
 
   /**
@@ -227,6 +280,11 @@ var ui = {
    */
   onCompassError: function(error) {
     console.debug("Compass error: " + error);
+    $('#compass').jqrotate(0);
+    // TODO: Show grayed-out compass image so that the user can see
+    // that the compass doesn't work.
+    $('#bearing').text('?');
+    $('#directionalAccuracy').text('?');
   }
 };
 
@@ -249,6 +307,7 @@ var app = {
   // The scope of 'this' is the event. In order to call the 'receivedEvent'
   // function, we must explicity call 'app.receivedEvent(...);'
   onDeviceReady: function() {
+    console.debug("Initializing App.");
     app.navstate = new Navstate();
     try {
       navigator.geolocation.watchPosition(function (position) {
@@ -258,11 +317,19 @@ var app = {
           position.coords.altitude,
           position.coords.accuracy,
           position.coords.altitudeAccuracy);
-      });
+      }, function (error) {
+           console.debug("Error while determining position: (" + error.code + ") " + error.message);
+           app.navstate.updatePosition(undefined);
+         }, {
+           maximumAge: 3000,
+           timeout: 5000,
+           enableHighAccuracy: true
+         });
     } catch (e) {
       console.debug("Failed to initialize position watching: " + e);
     }
     ui.initialize(app.navstate);
+
   }
 };
 
