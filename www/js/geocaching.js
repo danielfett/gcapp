@@ -1,5 +1,10 @@
 (function(window, $, undefined) {
 
+  /**
+   * These are the numbers that are used internally at geocaching.com
+   * for the different cache types. The strings are our own internal
+   * representation.
+   */
   var TYPE_STRINGS = {
     2: 'REGULAR',
     3: 'MULTI',
@@ -10,6 +15,11 @@
     137: 'EARTH'
   }
 
+  /**
+   * These are the numeric codes that are used at geocaching.com for
+   * the different types of a log. The strings are our own internal
+   * representation.
+   */
   var LOG_TYPE_CODE = {
     2: 'found',
     3: 'did not find',
@@ -18,8 +28,14 @@
     45: 'needs maintenance'
   }
 
+  /**
+   * Maximum number of geocaches that can be downloaded in one batch.
+   */
   var MAX_DOWNLOAD_NUM = 100;
 
+  /**
+   * Create a new instance.
+   */
   Geocaching = function() {
     if (SIMULATE_GC) {
       console.debug("Geocaching.js running in simulation mode.");

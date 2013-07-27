@@ -19,9 +19,14 @@ Number.prototype.format = function(numZeros, numDecimals) {
 
 (function(window, undefined) {
 
+  /**
+   * Symbol for 'degrees'.
+   */
   var DEGREES = '°';
 
-  // radius of the earth in kilometers.
+  /**
+   * Radius of the earth in kilometers.
+   */
   var RADIUS_EARTH = 6371000.0;
 
   /**
@@ -66,6 +71,10 @@ Number.prototype.format = function(numZeros, numDecimals) {
     this.testLog();
   }
 
+  /**
+   * Calculate the great-circle distance between two points on the
+   * earth.
+   */
   Coordinate.prototype.distanceTo = function(target) {
       var dlat = Math.pow(Math.sin(((target.lat-this.lat) * Math.PI / 180.0) / 2), 2)
     var dlon = Math.pow(Math.sin(((target.lon-this.lon) * Math.PI / 180.0) / 2), 2)
