@@ -129,6 +129,16 @@ var ui = {
     // First, a vector layer which we will need to show symbols
     // representing the user's position, geocaches and so on.
     this.vectorLayer = new OpenLayers.Layer.Vector("My Layer", {
+      // We probably need our own style here. We will need to format:
+      //
+      // - geocaches
+      //
+      // - user and target position
+      //
+      // - multi-cache waypoints, possibly for multiple geocaches at
+      //   the same time, so that these should differ in color.
+      //
+      // ..and maybe some other information.
       style: OpenLayers.Feature.Vector.style["default"]
     });
 
@@ -162,7 +172,9 @@ var ui = {
     });
 
     // Show the position indicator
+    //
     // TODO: Better initial position (or disabled?)
+    //
     // TODO: Styling of this and the next indicator
     this.mapPosition = new OpenLayers.Feature.Vector(
       new OpenLayers.Geometry.Point(6.6666666, 49.7777777).transform(
@@ -170,6 +182,7 @@ var ui = {
         new OpenLayers.Projection("EPSG:900913")));
 
     // Show the target
+    //
     // TODO: Styling
     this.targetPosition = new OpenLayers.Feature.Vector(
       new OpenLayers.Geometry.Point(6.6666666, 49.7777777).transform(
