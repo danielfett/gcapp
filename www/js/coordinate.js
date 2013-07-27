@@ -1,3 +1,12 @@
+
+/**
+ * Install a function to format floats by padding zeros to the left
+ * and right if necessary. Takes two arguments:
+ *
+ * - numZeros is the number of digits for the integer part.
+ *
+ * - numDecimals is the number of digits after the point.
+ */
 Number.prototype.format = function(numZeros, numDecimals) {
   var n = Math.abs(this).toFixed(numDecimals);
   var zeros = Math.max(0, numZeros - n.length + numDecimals + (numDecimals ? 1 : 0));
@@ -12,13 +21,26 @@ Number.prototype.format = function(numZeros, numDecimals) {
 
   var DEGREES = '°';
 
+  // radius of the earth in kilometers.
   var RADIUS_EARTH = 6371000.0;
 
+  /**
+   * Create a new Coordinate object, with lat an lon given as floats.
+   */
   Coordinate = function(lat, lon) {
     this.lat = lat;
     this.lon = lon;
   }
 
+  /**
+   * Try to parse a string that represents a coordinate in
+   * Degree-Minute notation. The expected string format is "Nab°
+   * cd.efg Eabc° de.fgh" with some variations allowed (e.g., '°' is
+   * optional).
+   *
+   * Returns undefined if the string is not parsable and sets the
+   * lat/lon values of the current coordinate otherwise.
+   */
   Coordinate.prototype.tryParse = function(s) {
     var rep = s.trim();
     regex = /^([NS+-]?)\s?(\d\d?\d?)[ °]{0,2}(\d\d?\d?)[., ](\d+)['\s,]+([EOW+-]?)\s?(\d{1,3})[ °]{0,2}(\d\d?\d?)[., ](\d+)?[\s']*$/i;
@@ -35,6 +57,9 @@ Number.prototype.format = function(numZeros, numDecimals) {
     return this;
   }
 
+  /**
+   * Convert from Degree-Minute notation to floats for lat/lon.
+   */
   Coordinate.prototype.fromDM = function (latdd, latmm, londd, lonmm) {
     this.lat = latdd + (latmm / 60.0);
     this.lon = londd + (lonmm / 60.0);
@@ -49,6 +74,9 @@ Number.prototype.format = function(numZeros, numDecimals) {
     return RADIUS_EARTH * c;
   }
 
+  /**
+   * Return a nicely formatted string in Degree-Minute notation.
+   */
   Coordinate.prototype.toString = function() {
       if (this.lat === undefined || this.lon === undefined) {
 	return '(not set)';
@@ -57,14 +85,21 @@ Number.prototype.format = function(numZeros, numDecimals) {
       }
   }
 
+  /**
+   * As above, but the string uses some HTML features for a nicer
+   * printing.
+   */
   Coordinate.prototype.toHTML = function() {
       if (this.lat === undefined || this.lon === undefined) {
 	return '<emph>(not set)</emph>';
       } else {
 	return getLatD.call(this, '&#8198;') + ' ' + getLonD.call(this, '&#8198;');
       }
-  } 
+  }
 
+  /**
+   * Return a string for the LAT part of the coordinate.
+   */
   function getLatD(space) {
     if (! space) space = ' ';
     var l = Math.abs(this.lat);
@@ -78,6 +113,9 @@ Number.prototype.format = function(numZeros, numDecimals) {
 	 + ((l - Math.floor(l)) * 60.0).format(2, 3);
   }
 
+  /**
+   * Return a string for the LON part of the coordinate.
+   */
   function getLonD(space) {
     if (! space) space = ' ';
     var l = Math.abs(this.lon);
