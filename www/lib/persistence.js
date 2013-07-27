@@ -194,7 +194,7 @@ persistence.get = function(arg1, arg2) {
     }
 
     persistence.getMeta = getMeta;
-    
+
 
     /**
      * A database session
@@ -1044,9 +1044,9 @@ persistence.get = function(arg1, arg2) {
           if(typeof value === 'number') {
             if (value > 1000000000000) {
               // it's in milliseconds
-              return new Date(value); 
+              return new Date(value);
             } else {
-              return new Date(value * 1000); 
+              return new Date(value * 1000);
             }
           } else {
             return null;
@@ -1321,7 +1321,11 @@ persistence.get = function(arg1, arg2) {
     }
 
     ////////////////// QUERY COLLECTIONS \\\\\\\\\\\\\\\\\\\\\\\
-
+  /**
+   * GCApp: This is now in an extra file, because we need it not only
+   * in persistence.js.
+   */
+  /*
     function Subscription(obj, eventType, fn) {
       this.obj = obj;
       this.eventType = eventType;
@@ -1335,7 +1339,7 @@ persistence.get = function(arg1, arg2) {
     /**
      * Simple observable function constructor
      * @constructor
-     */
+     */ /*
     function Observable() {
       this.subscribers = {};
     }
@@ -1367,7 +1371,7 @@ persistence.get = function(arg1, arg2) {
       for(var i = 0; i < subscribers.length; i++) {
         subscribers[i].apply(null, arguments);
       }
-    };
+    };*/
 
     /*
      * Each filter has 4 methods:
@@ -1434,12 +1438,12 @@ persistence.get = function(arg1, arg2) {
       return this.left.toUniqueString() + " AND " + this.right.toUniqueString();
     };
 
-    AndFilter.prototype.subscribeGlobally = function(coll, entityName) { 
+    AndFilter.prototype.subscribeGlobally = function(coll, entityName) {
       this.left.subscribeGlobally(coll, entityName);
       this.right.subscribeGlobally(coll, entityName);
     };
 
-    AndFilter.prototype.unsubscribeGlobally = function(coll, entityName) { 
+    AndFilter.prototype.unsubscribeGlobally = function(coll, entityName) {
       this.left.unsubscribeGlobally(coll, entityName);
       this.right.unsubscribeGlobally(coll, entityName);
     };
@@ -1472,12 +1476,12 @@ persistence.get = function(arg1, arg2) {
       return this.left.toUniqueString() + " OR " + this.right.toUniqueString();
     };
 
-    OrFilter.prototype.subscribeGlobally = function(coll, entityName) { 
+    OrFilter.prototype.subscribeGlobally = function(coll, entityName) {
       this.left.subscribeGlobally(coll, entityName);
       this.right.subscribeGlobally(coll, entityName);
     };
 
-    OrFilter.prototype.unsubscribeGlobally = function(coll, entityName) { 
+    OrFilter.prototype.unsubscribeGlobally = function(coll, entityName) {
       this.left.unsubscribeGlobally(coll, entityName);
       this.right.unsubscribeGlobally(coll, entityName);
     };
@@ -1600,11 +1604,11 @@ persistence.get = function(arg1, arg2) {
 
     QueryCollection.prototype.oldAddEventListener = QueryCollection.prototype.addEventListener;
 
-    QueryCollection.prototype.setupSubscriptions = function() { 
+    QueryCollection.prototype.setupSubscriptions = function() {
       this._filter.subscribeGlobally(this, this._entityName);
     };
 
-    QueryCollection.prototype.teardownSubscriptions = function() { 
+    QueryCollection.prototype.teardownSubscriptions = function() {
       this._filter.unsubscribeGlobally(this, this._entityName);
     };
 
@@ -1860,7 +1864,7 @@ persistence.get = function(arg1, arg2) {
       this.triggerEvent('add', this, obj);
       this.triggerEvent('change', this, obj);
     }
-    
+
     /**
      * Adds an an array of objects to a collection
      * @param obj the object to add
@@ -2420,4 +2424,3 @@ if (!JSON.stringify) {
       }
     }());
 }
-
