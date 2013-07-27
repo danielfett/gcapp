@@ -144,7 +144,7 @@
 
     // Simulation can be enabled by including the simulate-geocaching.js file.
     if (SIMULATE_GC) {
-      dfd.resolve(parseCacheDocument.call(this, CACHE_DOC));
+      dfd.resolve(parseCacheDocument.call(this, CACHE_DOC, new Geocache()));
       return dfd.promise();
     }
 
@@ -218,7 +218,10 @@
 
     // Simulation can be enabled by including the simulate-geocaching.js file.
     if (SIMULATE_GC) {
-      dfd.resolve({dummy: 'dummy', cache: this.readGeocache('dummy')});
+      this.updateGeocache('dummy')
+      .done(function(geocache) {
+        dfd.resolve([geocache]);
+      });
       return dfd.promise();
     }
 
