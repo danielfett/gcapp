@@ -125,23 +125,6 @@ var ui = {
     }
 
     // Initialize the map.
-
-    // First, a vector layer which we will need to show symbols
-    // representing the user's position, geocaches and so on.
-    this.vectorLayer = new OpenLayers.Layer.Vector("My Layer", {
-      // We probably need our own style here. We will need to format:
-      //
-      // - geocaches
-      //
-      // - user and target position
-      //
-      // - multi-cache waypoints, possibly for multiple geocaches at
-      //   the same time, so that these should differ in color.
-      //
-      // ..and maybe some other information.
-      style: OpenLayers.Feature.Vector.style["default"]
-    });
-
     this.map = new OpenLayers.Map({
       div: "map",
       theme: null,
@@ -161,9 +144,7 @@ var ui = {
       layers: [
         new OpenLayers.Layer.OSM("OpenStreetMap", null, {
           transitionEffect: 'resize'
-        }),
-
-        this.vectorLayer
+        })
       ],
       center: new OpenLayers.LonLat(6.6666666, 49.7777777).transform(
                     new OpenLayers.Projection("EPSG:4326"),
@@ -171,25 +152,134 @@ var ui = {
       zoom: 13
     });
 
-    // Show the position indicator
+    // Create the position indicator
     //
     // TODO: Better initial position (or disabled?)
-    //
-    // TODO: Styling of this and the next indicator
     this.mapPosition = new OpenLayers.Feature.Vector(
       new OpenLayers.Geometry.Point(6.6666666, 49.7777777).transform(
         new OpenLayers.Projection("EPSG:4326"),
-        new OpenLayers.Projection("EPSG:900913")));
+        new OpenLayers.Projection("EPSG:900913")),
+      {symbol: 'position'});
 
-    // Show the target
-    //
-    // TODO: Styling
+    // Create the target
     this.targetPosition = new OpenLayers.Feature.Vector(
       new OpenLayers.Geometry.Point(6.6666666, 49.7777777).transform(
         new OpenLayers.Projection("EPSG:4326"),
-        new OpenLayers.Projection("EPSG:900913")));
+        new OpenLayers.Projection("EPSG:900913")),
+      {symbol: 'target'});
 
+    // We need a style map that defines the look of our cache symbols.
+    var styleMap = new OpenLayers.StyleMap({
+      fillOpacity: 1,
+      pointRadius: 10
+    });
+
+    // TODO: Replace these images by SVG images
+    var lookupSymbol = {
+      'target': {
+        externalGraphic: 'img/target-indicator-cross.png',
+        graphicXOffset: 23,
+        graphicYOffset: 23
+      },
+      'position': {
+        externalGraphic: 'img/position-indicator.png',
+        graphicXOffset: 11,
+        graphicYOffset: 39, // check.
+        graphicOpacity: 0.8
+      },
+      'geocache' : {
+        graphicName: 'square',
+        fillOpacity: 0.6
+      }
+    };
+
+    styleMap.addUniqueValueRules("default", "symbol", lookupSymbol);
+
+    // TODO: These values are for testing only. Check back later how
+    // to show geocaches on the map.
+    var lookupSize = {
+      '-1': {graphicName: 'x', pointRadius: 15}
+    };
+    for (var i = 10; i <= 50; i += 5) {
+      lookupSize['' + i] = {pointRadius: i*0.5};
+    }
+
+    styleMap.addUniqueValueRules("default", "size", lookupSize);
+
+    var lookupType = {
+      'REGULAR': {fillColor: "chartreuse", strokeColor: "chartreuse"},
+      'MULTI': {fillColor: "darkorange", strokeColor: "darkorange"},
+      'VIRTUAL':  {fillColor: "blue", strokeColor: "blue"},
+      'EVENT': {fillColor: "red", strokeColor: "red"},
+      'MYSTERY': {fillColor: "royalblue", strokeColor: "royalblue"},
+      'WEBCAM': {fillColor: "darkslategray", strokeColor: "darkslategray"},
+      'EARTH': {fillColor: "darkolivegreen", strokeColor: "darkolivegreen"}
+    };
+
+    styleMap.addUniqueValueRules("default", "type", lookupType);
+
+    // A vector layer which we will need to show symbols representing
+    // the user's position, geocaches and so on.
+    this.vectorLayer = new OpenLayers.Layer.Vector("My Layer", {
+      // We probably need our own style here. We will need to format:
+      //
+      // - geocaches
+      //
+      // - user and target position
+      //
+      // - multi-cache waypoints, possibly for multiple geocaches at
+      //   the same time, so that these should differ in color.
+      //
+      // ..and maybe some other information.
+      //style: OpenLayers.Feature.Vector.style["default"]
+      styleMap: styleMap
+    });
+
+    // add the vector layer to the map
+    this.map.addLayer(this.vectorLayer);
+
+    // Show position indicator and target
     this.vectorLayer.addFeatures([this.mapPosition, this.targetPosition]);
+
+    var testStuff = [
+
+      new OpenLayers.Feature.Vector(
+        new OpenLayers.Geometry.Point(6.666666, 49.7777777).transform(
+          new OpenLayers.Projection("EPSG:4326"),
+          new OpenLayers.Projection("EPSG:900913")),
+        {symbol: 'geocache', type: 'REGULAR', size: '-1'}),
+
+      new OpenLayers.Feature.Vector(
+        new OpenLayers.Geometry.Point(6.67666, 49.7777777).transform(
+          new OpenLayers.Projection("EPSG:4326"),
+          new OpenLayers.Projection("EPSG:900913")),
+        {symbol: 'geocache', type: 'MULTI', size: '30'}),
+
+      new OpenLayers.Feature.Vector(
+        new OpenLayers.Geometry.Point(6.6866666, 49.7777777).transform(
+          new OpenLayers.Projection("EPSG:4326"),
+          new OpenLayers.Projection("EPSG:900913")),
+        {symbol: 'geocache', type: 'VIRTUAL', size: '10'}),
+
+      new OpenLayers.Feature.Vector(
+        new OpenLayers.Geometry.Point(6.6966666, 49.7777777).transform(
+          new OpenLayers.Projection("EPSG:4326"),
+          new OpenLayers.Projection("EPSG:900913")),
+        {symbol: 'geocache', type: 'EVENT', size: '20'}),
+
+      new OpenLayers.Feature.Vector(
+        new OpenLayers.Geometry.Point(6.7066666, 49.7777777).transform(
+          new OpenLayers.Projection("EPSG:4326"),
+          new OpenLayers.Projection("EPSG:900913")),
+        {symbol: 'geocache', type: 'EARTH', size: '30'}),
+
+      new OpenLayers.Feature.Vector(
+        new OpenLayers.Geometry.Point(6.716666, 49.7777777).transform(
+          new OpenLayers.Projection("EPSG:4326"),
+          new OpenLayers.Projection("EPSG:900913")),
+        {symbol: 'geocache', type: 'REGULAR', size: '40'})
+    ];
+    this.vectorLayer.addFeatures(testStuff);
   },
 
   /**
