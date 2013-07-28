@@ -17,6 +17,21 @@ Number.prototype.format = function(numZeros, numDecimals) {
   return (zeroString + n);
 };
 
+/**
+ * Format this number as a meters/kilometers/etc. in a sensible
+ * way. We assume the number already represents the distance in
+ * meters.
+ */
+Number.prototype.formatDistance = function() {
+  if (this >= 1000) {
+    return Math.round(this / 1000.0) + " km"
+  } else if (this >= 100) {
+    return Math.round(this) + " m"
+  } else {
+    return this.toFixed(1) + " m"
+  }
+};
+
 (function(window, undefined) {
 
   /**

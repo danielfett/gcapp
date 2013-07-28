@@ -205,9 +205,6 @@ var ui = {
               new OpenLayers.Projection("EPSG:900913")));
 
       $('#position').html(position.toHTML());
-      // TODO: Include a function that formats distances nicely (see
-      // AGTL)
-      //
       // TODO: WTF? Why is the altitude a string "null" when not set
       // (and not the value null)?!  The W3C standard has this to say
       // on this topic:
@@ -220,7 +217,7 @@ var ui = {
       //
       // But "null" is not specified further (at least not in this
       // document itself).
-      $('#altitude').text((position.alt != 'null') ? '?' : position.alt);
+      $('#altitude').text((position.alt != 'null') ? '?' : position.alt.formatDistance());
     } else {
       // TODO: Hide position if not available.
     }
@@ -231,9 +228,7 @@ var ui = {
    * Event coming from the navstate.
    */
   onDistanceChanged: function(event, distance) {
-    // TODO: Include a function that formats distances nicely (see
-    // AGTL)
-    $('#distance').text(distance ? distance : '?');
+    $('#distance').text(distance ? distance.formatDistance() : '?');
   },
 
   /**
@@ -270,12 +265,13 @@ var ui = {
    * Event coming from the navstate.
    */
   onAccuracyChanged: function(event, accuracy) {
-    // TODO: Include a function that formats distances nicely (see
-    // AGTL)
-    //
     // TODO: Visualize accuracy on map, e.g., with a circle around the
     // current position
-    $('#positionalAccuracy').text('± ' + accuracy);
+    if (accuracy) {
+      $('#positionalAccuracy').text('± ' + accuracy.formatDistance());
+    } else {
+      $('#positionalAccuracy').text('?');
+    }
   },
 
   /**
