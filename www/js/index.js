@@ -125,48 +125,6 @@ var ui = {
     }
 
     // Initialize the map.
-    this.map = new OpenLayers.Map({
-      div: "map",
-      theme: null,
-      controls: [
-        new OpenLayers.Control.Attribution(),
-        new OpenLayers.Control.TouchNavigation({
-          dragPanOptions: {
-            enableKinetic: true
-          }
-        }),
-        new OpenLayers.Control.Zoom(),
-        new OpenLayers.Control.CacheRead(),
-        new OpenLayers.Control.CacheWrite({
-          imageFormat: "image/jpeg"
-        })
-      ],
-      layers: [
-        new OpenLayers.Layer.OSM("OpenStreetMap", null, {
-          transitionEffect: 'resize'
-        })
-      ],
-      center: new OpenLayers.LonLat(6.6666666, 49.7777777).transform(
-                    new OpenLayers.Projection("EPSG:4326"),
-                    new OpenLayers.Projection("EPSG:900913")),
-      zoom: 13
-    });
-
-    // Create the position indicator
-    //
-    // TODO: Better initial position (or disabled?)
-    this.mapPosition = new OpenLayers.Feature.Vector(
-      new OpenLayers.Geometry.Point(6.6666666, 49.7777777).transform(
-        new OpenLayers.Projection("EPSG:4326"),
-        new OpenLayers.Projection("EPSG:900913")),
-      {symbol: 'position'});
-
-    // Create the target
-    this.targetPosition = new OpenLayers.Feature.Vector(
-      new OpenLayers.Geometry.Point(6.6666666, 49.7777777).transform(
-        new OpenLayers.Projection("EPSG:4326"),
-        new OpenLayers.Projection("EPSG:900913")),
-      {symbol: 'target'});
 
     // We need a style map that defines the look of our cache symbols.
     var styleMap = new OpenLayers.StyleMap({
@@ -218,6 +176,7 @@ var ui = {
 
     styleMap.addUniqueValueRules("default", "type", lookupType);
 
+
     // A vector layer which we will need to show symbols representing
     // the user's position, geocaches and so on.
     this.vectorLayer = new OpenLayers.Layer.Vector("My Layer", {
@@ -231,12 +190,55 @@ var ui = {
       //   the same time, so that these should differ in color.
       //
       // ..and maybe some other information.
-      //style: OpenLayers.Feature.Vector.style["default"]
       styleMap: styleMap
     });
 
     // add the vector layer to the map
-    this.map.addLayer(this.vectorLayer);
+    this.map = new OpenLayers.Map({
+      div: "map",
+      theme: null,
+      controls: [
+        new OpenLayers.Control.Attribution(),
+        new OpenLayers.Control.TouchNavigation({
+          dragPanOptions: {
+            enableKinetic: true
+          }
+        }),
+        new OpenLayers.Control.Zoom(),
+        new OpenLayers.Control.CacheRead(),
+        new OpenLayers.Control.CacheWrite({
+          imageFormat: "image/jpeg"
+        })
+      ],
+      layers: [
+        new OpenLayers.Layer.OSM("OpenStreetMap", null, {
+          transitionEffect: 'resize'
+        }),
+        this.vectorLayer
+      ],
+      center: new OpenLayers.LonLat(6.6666666, 49.7777777).transform(
+                    new OpenLayers.Projection("EPSG:4326"),
+                    new OpenLayers.Projection("EPSG:900913")),
+      zoom: 13,
+      tileManager: new OpenLayers.TileManager(),
+      renderers: ["Canvas", "SVG", "VML"]
+    });
+
+    // Create the position indicator
+    //
+    // TODO: Better initial position (or disabled?)
+    this.mapPosition = new OpenLayers.Feature.Vector(
+      new OpenLayers.Geometry.Point(6.6666666, 49.7777777).transform(
+        new OpenLayers.Projection("EPSG:4326"),
+        new OpenLayers.Projection("EPSG:900913")),
+      {symbol: 'position'});
+
+    // Create the target
+    this.targetPosition = new OpenLayers.Feature.Vector(
+      new OpenLayers.Geometry.Point(6.6666666, 49.7777777).transform(
+        new OpenLayers.Projection("EPSG:4326"),
+        new OpenLayers.Projection("EPSG:900913")),
+      {symbol: 'target'});
 
     // Show position indicator and target
     this.vectorLayer.addFeatures([this.mapPosition, this.targetPosition]);
