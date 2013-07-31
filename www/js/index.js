@@ -137,17 +137,21 @@ var ui = {
       'target': {
         externalGraphic: 'img/target-indicator-cross.png',
         graphicXOffset: 23,
-        graphicYOffset: 23
+        graphicYOffset: 23,
+        pointRadius: 20
       },
       'position': {
         externalGraphic: 'img/position-indicator.png',
         graphicXOffset: 11,
         graphicYOffset: 39, // check.
-        graphicOpacity: 0.8
+        graphicOpacity: 0.8,
+        rotation: "${heading}",
+        pointRadius: 20
       },
       'geocache' : {
         graphicName: 'square',
-        fillOpacity: 0.6
+        fillOpacity: 0.6,
+        strokeColor: 'black'
       }
     };
 
@@ -165,13 +169,13 @@ var ui = {
     styleMap.addUniqueValueRules("default", "size", lookupSize);
 
     var lookupType = {
-      'REGULAR': {fillColor: "chartreuse", strokeColor: "chartreuse"},
-      'MULTI': {fillColor: "darkorange", strokeColor: "darkorange"},
-      'VIRTUAL':  {fillColor: "blue", strokeColor: "blue"},
-      'EVENT': {fillColor: "red", strokeColor: "red"},
-      'MYSTERY': {fillColor: "royalblue", strokeColor: "royalblue"},
-      'WEBCAM': {fillColor: "darkslategray", strokeColor: "darkslategray"},
-      'EARTH': {fillColor: "darkolivegreen", strokeColor: "darkolivegreen"}
+      'REGULAR': {fillColor: "chartreuse"},// strokeColor: "chartreuse"},
+      'MULTI': {fillColor: "darkorange"},//, strokeColor: "darkorange"},
+      'VIRTUAL':  {fillColor: "blue"},//, strokeColor: "blue"},
+      'EVENT': {fillColor: "red"},//, strokeColor: "red"},
+      'MYSTERY': {fillColor: "royalblue"},//, strokeColor: "royalblue"},
+      'WEBCAM': {fillColor: "darkslategray"},//, strokeColor: "darkslategray"},
+      'EARTH': {fillColor: "darkolivegreen"}//, strokeColor: "darkolivegreen"}
     };
 
     styleMap.addUniqueValueRules("default", "type", lookupType);
@@ -231,7 +235,7 @@ var ui = {
       new OpenLayers.Geometry.Point(6.6666666, 49.7777777).transform(
         new OpenLayers.Projection("EPSG:4326"),
         new OpenLayers.Projection("EPSG:900913")),
-      {symbol: 'position'});
+      {symbol: 'position', heading: '90'});
 
     // Create the target
     this.targetPosition = new OpenLayers.Feature.Vector(
@@ -289,7 +293,6 @@ var ui = {
    */
   onPositionChanged: function(event, position) {
     if (position) {
-
       ui.mapPosition
       .move(new OpenLayers.LonLat(position.lon, position.lat)
             .transform(
@@ -374,6 +377,8 @@ var ui = {
     $('#compass').jqrotate(-heading.trueHeading);
     $('#bearing').text(heading.trueHeading);
     $('#directionalAccuracy').text('± ' + heading.headingAccuracy);
+    ui.mapPosition.attributes.heading = heading;
+    ui.vectorLayer.redraw();
   },
 
   /**
@@ -386,6 +391,18 @@ var ui = {
     // that the compass doesn't work.
     $('#bearing').text('?');
     $('#directionalAccuracy').text('?');
+  },
+
+  actionGotoPosition: function() {
+    if (ui.navstate.position) {
+      ui.map.panTo(new OpenLayers.LonLat(
+        ui.navstate.position.lon,
+        ui.navstate.position.lat)
+                     .transform(
+                       new OpenLayers.Projection("EPSG:4326"),
+                       new OpenLayers.Projection("EPSG:900913"))
+                    );
+      }
   }
 };
 
