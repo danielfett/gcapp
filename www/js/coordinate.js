@@ -139,6 +139,17 @@ Number.prototype.formatDistance = function() {
   }
 
   /**
+   * Return a simple array of the form [lat, lng]
+   */
+  Coordinate.prototype.latlon = function() {
+    if (this.lat && this.lon) {
+      return [this.lat, this.lon];
+    } else {
+      return undefined;
+    }
+  }
+
+  /**
    * Return a string for the LAT part of the coordinate.
    */
   function getLatD(space) {

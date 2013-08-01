@@ -18,6 +18,42 @@
  };
 })(jQuery);
 
+// Add rotation of markers to leaflet.js
+// found at http://stackoverflow.com/questions/13494649/rotate-marker-in-leaflet
+// TODO: It seems like the rotation center is not the iconAnchor.
+L.Marker.RotatedMarker = L.Marker.extend({
+  _reset: function() {
+    var pos = this._map.latLngToLayerPoint(this._latlng).round();
+
+    L.DomUtil.setPosition(this._icon, pos);
+    if (this._shadow) {
+      L.DomUtil.setPosition(this._shadow, pos);
+    }
+
+    if (this.options.iconAngle) {
+      this._icon.style.MozTransform = L.DomUtil.getTranslateString(pos) + ' rotate(' + this.options.iconAngle + 'deg)';
+      this._icon.style.WebkitTransform = this._icon.style.WebkitTransform + ' rotate(' + this.options.iconAngle + 'deg)';
+    }
+
+    this._icon.style.zIndex = pos.y;
+  },
+
+  setIconAngle: function (iconAngle) {
+
+    if (this._map) {
+      this._removeIcon();
+    }
+
+    this.options.iconAngle = iconAngle;
+
+    if (this._map) {
+      this._initIcon();
+      this._reset();
+    }
+  }
+
+});
+
 
 /**
  * Navstate is the object capturing the current "state of navigation",
@@ -103,10 +139,14 @@
 // the UI
 var ui = {
   initialize: function(navstate) {
+    if (this.initialized) {
+      console.error("Already initialized!");
+      return;
+    }
     console.debug("Initializing User Interface.");
 
     this.navstate = navstate;
-    /*this.navstate.addEventListener('positionChanged', this.onPositionChanged);
+    this.navstate.addEventListener('positionChanged', this.onPositionChanged);
     this.navstate.addEventListener('targetChanged', this.onTargetChanged);
     this.navstate.addEventListener('bearingChanged', this.onBearingChanged);
     this.navstate.addEventListener('distanceChanged', this.onDistanceChanged);
@@ -122,16 +162,63 @@ var ui = {
         this.onCompassError);
     } catch (e) {
       console.debug("Unable to initialize compass: " + e);
-    }*/
+    }
 
     // Initialize the map.
+
+    // We need some icons.
+    var positionIcon = L.icon({
+      iconUrl: '../img/position-indicator-red.png',
+      //iconRetinaUrl: 'my-icon@2x.png',
+      iconSize: [44, 100],
+      iconAnchor: [22, 78],
+      popupAnchor: [22, 0]
+      //shadowUrl: '../img/position-indicator-red.png'
+      //shadowRetinaUrl: 'my-icon-shadow@2x.png',
+      //shadowSize: [68, 95],
+      //shadowAnchor: [22, 94]
+    });
+
+    var targetIcon = L.icon({
+      iconUrl: '../img/target-indicator-cross.png',
+      //iconRetinaUrl: 'my-icon@2x.png',
+      iconSize: [44, 44],
+      iconAnchor: [22, 22],
+      popupAnchor: [22, 0]
+      //shadowUrl: '../img/position-indicator-red.png'
+      //shadowRetinaUrl: 'my-icon-shadow@2x.png',
+      //shadowSize: [68, 95],
+      //shadowAnchor: [22, 94]
+    });
+
     this.map = L.map('map').setView([49.777777777, 6.66666666], 13);
     L.tileLayer('http://{s}.tile.osm.org/{z}/{x}/{y}.png', {
       attribution: '&copy; <a href="http://osm.org/copyright">OpenStreetMap</a> contributors'
     }).addTo(this.map);
-    L.marker([49.7777777, 6.666666]).addTo(this.map)
-    .bindPopup("A pretty CSS3 popup. <br> Easily customizable.")
-    .openPopup();
+
+    // The marker indicating the current position
+    // TODO: Add rotation
+    this.mapPosition = L.marker([49.7777777, 6.666666], {
+      icon: positionIcon
+    }).addTo(this.map);
+
+    // And a circle around the current position for the accuracy
+    this.accuracyMarker = new L.Circle([49.7777777, 6.666666], 40, {
+      stroke: false,
+      fill: true,
+      fillColor: '#f90',
+      fillOpacity: 0.3,
+      clickable: false
+      });
+    this.map.addLayer(this.accuracyMarker);
+
+    // The marker indicating the current targer
+    this.targetPosition = L.marker([49.7777777, 6.666666], {
+      icon: targetIcon
+    }).addTo(this.map);
+
+    $(this.targetPosition._icon).hide();
+    $(this.mapPosition._icon).hide();
 
   },
 
@@ -140,12 +227,12 @@ var ui = {
    */
   onPositionChanged: function(event, position) {
     if (position) {
-      ui.mapPosition
-      .move(new OpenLayers.LonLat(position.lon, position.lat)
-            .transform(
-              new OpenLayers.Projection("EPSG:4326"),
-              new OpenLayers.Projection("EPSG:900913")));
-
+      ui.mapPosition.setLatLng(position.latlon());
+      $(ui.mapPosition._icon).show();
+      ui.accuracyMarker.setLatLng(position.latlon());
+      ui.accuracyMarker.setStyle({
+        fillOpacity: 0.3
+      });
       $('#position').html(position.toHTML());
       // TODO: WTF? Why is the altitude a string "null" when not set
       // (and not the value null)?!  The W3C standard has this to say
@@ -161,7 +248,11 @@ var ui = {
       // document itself).
       $('#altitude').text((position.alt != 'null') ? '?' : position.alt.formatDistance());
     } else {
-      // TODO: Hide position if not available.
+      // Hide position if not available.
+      $(ui.mapPosition._icon).hide();
+      ui.accuracyMarker.setStyle({
+        fillOpacity: 0
+      });
     }
   },
 
@@ -191,15 +282,12 @@ var ui = {
   onTargetChanged: function(event, target) {
     if (target) {
       // TODO: Hide when no target set.
-      ui.targetPosition
-      .move(new OpenLayers.LonLat(target.lon, target.lat)
-            .transform(
-              new OpenLayers.Projection("EPSG:4326"),
-              new OpenLayers.Projection("EPSG:900913")));
-
+      ui.targetPosition.setLatLng(target.latlon());
+      $(ui.targetPosition._icon).show();
       $('#target').html(target.toHTML());
     } else {
       $('#target').text("(no target set)");
+      $(ui.targetPosition._icon).hide();
     }
   },
 
@@ -211,8 +299,15 @@ var ui = {
     // current position
     if (accuracy) {
       $('#positionalAccuracy').text('± ' + accuracy.formatDistance());
+      ui.accuracyMarker.setRadius(accuracy);
+      ui.accuracyMarker.setStyle({
+        fillOpacity: 0.3
+      });
     } else {
       $('#positionalAccuracy').text('?');
+      ui.accuracyMarker.setStyle({
+        fillOpacity: 0
+      });
     }
   },
 
@@ -291,7 +386,8 @@ var app = {
           position.coords.accuracy,
           position.coords.altitudeAccuracy);
       }, function (error) {
-           console.debug("Error while determining position: (" + error.code + ") " + error.message);
+           console.debug("Error while determining position: ("
+                        + error.code + ") " + error.message);
            app.navstate.updatePosition(undefined);
          }, {
            maximumAge: 3000,
