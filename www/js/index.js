@@ -160,9 +160,11 @@ var ui = {
     try {
       navigator.compass.watchHeading(
         this.onCompassUpdate,
-        this.onCompassError);
+        this.onCompassError, {
+          frequency: 100
+        });
     } catch (e) {
-      console.debug("Unable to initialize compass: " + e);
+      console.error("Unable to initialize compass: " + e);
     }
 
     // Initialize the map.
@@ -316,12 +318,16 @@ var ui = {
    * The compass is managed solely by the ui.
    */
   onCompassUpdate: function(heading) {
+    if (ui.oldHeading && Math.abs(ui.oldHeading - heading.trueHeading) < 2) {
+      return;
+    }
+    ui.oldHeading = heading.trueHeading;
     //console.debug("New heading: " + heading.trueHeading);
     $('#compass').jqrotate(-heading.trueHeading);
     $('#bearing').text(heading.trueHeading);
     $('#directionalAccuracy').text('± ' + heading.headingAccuracy);
-    ui.mapPosition.attributes.heading = heading;
-    ui.vectorLayer.redraw();
+    //ui.mapPosition.attributes.heading = heading;
+    //ui.vectorLayer.redraw();
   },
 
   /**
