@@ -134,7 +134,7 @@ L.Marker.RotatedMarker = L.Marker.extend({
 })(this);
 
 
-
+IMAGE_PATH="img/";
 
 // the UI
 var ui = {
@@ -171,7 +171,7 @@ var ui = {
 
     // We need some icons.
     var positionIcon = L.icon({
-      iconUrl: '../img/position-indicator-red.png',
+      iconUrl: IMAGE_PATH + 'position-indicator-red.png',
       //iconRetinaUrl: 'my-icon@2x.png',
       iconSize: [44, 100],
       iconAnchor: [22, 78],
@@ -183,7 +183,7 @@ var ui = {
     });
 
     var targetIcon = L.icon({
-      iconUrl: '../img/target-indicator-cross.png',
+      iconUrl: IMAGE_PATH + 'target-indicator-cross.png',
       //iconRetinaUrl: 'my-icon@2x.png',
       iconSize: [44, 44],
       iconAnchor: [22, 22],
@@ -220,8 +220,16 @@ var ui = {
       icon: targetIcon
     }).addTo(this.map);
 
-    $(this.targetPosition._icon).hide();
+    //$(this.targetPosition._icon).hide();
     $(this.mapPosition._icon).hide();
+
+    var markers = new L.MarkerClusterGroup();
+    for (var i = 0; i < 200; i++) {
+      markers.addLayer(new L.Marker([Math.random() + 49, Math.random() + 6], {
+        icon: targetIcon
+      }));
+    }
+    this.map.addLayer(markers);
 
   },
 
