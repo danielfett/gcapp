@@ -143,6 +143,7 @@ var ui = {
       console.error("Already initialized!");
       return;
     }
+    this.initalized = true;
     console.debug("Initializing User Interface.");
 
     this.navstate = navstate;
@@ -359,7 +360,12 @@ var app = {
   // Bind any events that are required on startup. Common events are:
   // 'load', 'deviceready', 'offline', and 'online'.
   bindEvents: function() {
-    document.addEventListener('deviceready', this.onDeviceReady, false);
+    if (navigator.userAgent.match(/(iPhone|iPod|iPad|Android|BlackBerry|IEMobile)/)) {
+      document.addEventListener('deviceready', this.onDeviceReady, false);
+    } else {
+      $(document).ready(this.onDeviceReady); //this is the browser
+    }
+
 
   },
   // deviceready Event Handler
@@ -367,13 +373,11 @@ var app = {
   // The scope of 'this' is the event. In order to call the 'receivedEvent'
   // function, we must explicity call 'app.receivedEvent(...);'
   onDeviceReady: function() {
-    // This is a temporary hack: We currently call onDeviceReady twice
-    // if we are on the real device.
-    if (this.initialized) {
-      console.debug("Initialize called twice, not executing this time.");
+    if (app.initialized) {
+      console.error("Initialize called twice!");
       return;
     }
-    this.initialized = true;
+    app.initialized = true;
 
     console.debug("Initializing App.");
     app.navstate = new Navstate();
@@ -403,19 +407,4 @@ var app = {
 };
 
 
-// Now the main initialization of the app.
 app.initialize();
-$(document).ready(function() {
-  app.onDeviceReady(); // we call this manually for testing on the desktop browser.
-});
-
-/*
-  var gc = new Geocaching();
-  gc.ensureLogin('AGTLTestUser', '5dc60db7d5c7a86364c44091a')
-  .done(function() {
-    gc.test();
-  })
-  .fail(function(error) {
-    alert(error);
-  });
-});*/
