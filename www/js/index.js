@@ -425,6 +425,14 @@ var app = {
   // The scope of 'this' is the event. In order to call the 'receivedEvent'
   // function, we must explicity call 'app.receivedEvent(...);'
   onDeviceReady: function() {
+    // This is a temporary hack: We currently call onDeviceReady twice
+    // if we are on the real device.
+    if (this.initialized) {
+      console.debug("Initialize called twice, not executing this time.");
+      return;
+    }
+    this.initialized = true;
+
     console.debug("Initializing App.");
     app.navstate = new Navstate();
     try {
