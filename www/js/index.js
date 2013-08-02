@@ -90,25 +90,6 @@ var ui = {
     console.debug("Initializing User Interface.");
 
     this.navstate = navstate;
-    this.navstate.addEventListener('positionChanged', this.onPositionChanged);
-    this.navstate.addEventListener('targetChanged', this.onTargetChanged);
-    this.navstate.addEventListener('bearingChanged', this.onBearingChanged);
-    this.navstate.addEventListener('distanceChanged', this.onDistanceChanged);
-    this.navstate.addEventListener('accuracyChanged', this.onAccuracyChanged);
-
-    // We want to observe the compass here. Note that we do this in
-    // the user interface because the compass is really needed only
-    // for presentation reasons (as opposed to the current position,
-    // which is used to calculate and do stuff).
-    try {
-      navigator.compass.watchHeading(
-        this.onCompassUpdate,
-        this.onCompassError, {
-          frequency: 100
-        });
-    } catch (e) {
-      console.error("Unable to initialize compass: " + e);
-    }
 
     // Initialize the map.
 
