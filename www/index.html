@@ -11,39 +11,6 @@
     <title>GCApp</title>
   </head>
   <body>
-    <div id="left-column">
-      <div id="navigationwidget">
-	<div class="displayline">
-	  <div class="label left">Distance</div>
-	  <div class="label right">Accuracy</div>
-	</div>
-	<div class="displayline">
-	  <div class="value left" id="distance">?</div>
-	  <div class="value right" id="positionalAccuracy">?</div>
-	</div>
-	<div id="compasswidget">
-	  <div id="compass">
-	    <img src="img/arrow_target.svg" id="compassdirection">
-	  </div>
-	</div>
-	<div class="displayline">
-	  <div class="label left">Altitude</div>
-	  <div class="label center">Bearing</div>
-	  <div class="label right">Dir. Accuracy</div>
-	</div>
-	<div class="displayline">
-	  <div class="value left" id="altitude">?</div>
-	  <div class="value center" id="bearing">?</div>
-	  <div class="value right" id="directionalAccuracy">100%</div>
-	</div>
-	<div class="label displayline">Current Position</div>
-	<div class="value displayline" id="position">?</div>
-	<div class="label displayline">Current Target</div>
-	<div class="value displayline" id="target">?</div>
-	<button onclick='app.navstate.setTarget(new Coordinate(49.7777777, 6.66666666));'>test</button>
-	<button onclick='ui.actionGotoPosition();'>Goto position</button>
-      </div>
-    </div>
     <div id="right-column">
       <div id="map">
       </div>
