@@ -39,14 +39,14 @@ var ui = {
 
 
     // And a circle around the current position for the accuracy
-    this.accuracyMarker = new L.Circle([49.7777777, 6.666666], 40, {
+    /*this.accuracyMarker = new L.Circle([49.7777777, 6.666666], 40, {
       stroke: false,
       fill: true,
       fillColor: '#f90',
       fillOpacity: 0.3,
       clickable: false
       });
-    this.map.addLayer(this.accuracyMarker);
+    this.map.addLayer(this.accuracyMarker);*/
 
     // The marker indicating the current position
     // TODO: Add rotation
