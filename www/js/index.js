@@ -65,7 +65,6 @@ var ui = {
     }).addTo(this.map);
 
     //$(this.targetPosition._icon).hide();
-    $(this.mapPosition._icon).hide();
 
     var markers = new L.MarkerClusterGroup();
     for (var i = 0; i < 200; i++) {
@@ -92,7 +91,7 @@ var app = {
     if (navigator.userAgent.match(/(iPhone|iPod|iPad|Android|BlackBerry|IEMobile)/)) {
       document.addEventListener('deviceready', this.onDeviceReady, false);
     } else {
-      $(document).ready(this.onDeviceReady); //this is the browser
+      this.onDeviceReady(); //this is the browser
     }
 
 
