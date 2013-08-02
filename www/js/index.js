@@ -1,87 +1,8 @@
-/**
- * Navstate is the object capturing the current "state of navigation",
- * i.e., the position, the current navigation target etc.
- *
- * It is an Observable object, i.e., the UI can watch for changes here.
- */
-(function(window, undefined) {
-  Navstate = function () {
-    // The current position (a Coordinate)
-    this.position = new Coordinate();
-
-    // The current position accuracy
-    this.accuracy = undefined;
-
-    // The current altitude accuracy
-    this.altitudeAccuracy = undefined;
-
-    // The current target.
-    this.target = undefined;
-
-    // The bearing to the target ("in which direction is the target?")
-    this.bearing = undefined;
-
-    // The distance to the target in meters.
-    this.distance = undefined;
-  }
-
-  Navstate.prototype = new Observable();
-
-  /**
-   * Update the current position and recalculate the bearing to the
-   * target.
-   */
-  Navstate.prototype.updatePosition = function(newlat, newlon, newalt, acc, altacc) {
-    if (! newlat) {
-      this.position = undefined;
-      this.accuracy = undefined;
-      this.altitudeAccuracy = undefined;
-      console.debug("Undefined position.");
-    } else {
-      this.position = new Coordinate(newlat, newlon, newalt);
-      this.accuracy = acc;
-      this.altitudeAccuracy = altacc;
-      console.debug("Position updated to " + this.position.toString());
-    }
-    this.triggerEvent('positionChanged', this.position);
-    updateBearingDistance.call(this);
-    this.triggerEvent('accuracyChanged', this.accuracy);
-    this.triggerEvent('altitudeAccuracyChanged', this.altitudeAccuracy);
-  }
-
-  /**
-   * Set a new target. Update the bearing accordingly.
-   */
-  Navstate.prototype.setTarget = function(newTarget) {
-    this.target = newTarget;
-    this.triggerEvent('targetChanged', this.target);
-    updateBearingDistance.call(this);
-  }
-
-  /**
-   * Recalculate distance & bearing to target.
-   */
-  function updateBearingDistance() {
-    if (this.position && this.target) {
-      this.bearing = this.position.bearingTo(this.target);
-      this.distance = this.position.distanceTo(this.target);
-    } else {
-      this.bearing = undefined;
-      this.distance = undefined;
-    }
-    this.triggerEvent('bearingChanged',  this.bearing);
-    this.triggerEvent('distanceChanged', this.distance);
-    console.debug("bearing and distance changed to " + this.bearing + " / " + this.distance);
-  }
-
-})(this);
-
-
 IMAGE_PATH="img/";
 
 // the UI
 var ui = {
-  initialize: function(navstate) {
+  initialize: function() {
     if (this.initialized) {
       console.error("Already initialized!");
       return;
@@ -89,7 +10,6 @@ var ui = {
     this.initalized = true;
     console.debug("Initializing User Interface.");
 
-    this.navstate = navstate;
 
     // Initialize the map.
 
@@ -155,135 +75,6 @@ var ui = {
     }
     this.map.addLayer(markers);
 
-  },
-
-  /**
-   * Event coming from the navstate.
-   */
-  onPositionChanged: function(event, position) {
-    if (position) {
-      ui.mapPosition.setLatLng(position.latlon());
-      $(ui.mapPosition._icon).show();
-      ui.accuracyMarker.setLatLng(position.latlon());
-      ui.accuracyMarker.setStyle({
-        fillOpacity: 0.3
-      });
-      $('#position').html(position.toHTML());
-      // TODO: WTF? Why is the altitude a string "null" when not set
-      // (and not the value null)?!  The W3C standard has this to say
-      // on this topic:
-      //
-      //    The altitude attribute denotes the height of the position,
-      //    specified in meters above the [WGS84] ellipsoid. If the
-      //    implementation cannot provide altitude information, the
-      //    value of this attribute must be
-      //    null. (http://www.w3.org/TR/geolocation-API/)
-      //
-      // But "null" is not specified further (at least not in this
-      // document itself).
-      $('#altitude').text((position.alt != 'null') ? '?' : position.alt.formatDistance());
-    } else {
-      // Hide position if not available.
-      $(ui.mapPosition._icon).hide();
-      ui.accuracyMarker.setStyle({
-        fillOpacity: 0
-      });
-    }
-  },
-
-
-  /**
-   * Event coming from the navstate.
-   */
-  onDistanceChanged: function(event, distance) {
-    $('#distance').text(distance ? distance.formatDistance() : '?');
-  },
-
-  /**
-   * Event coming from the navstate.
-   */
-  onBearingChanged: function(event, bearing) {
-    if (bearing) {
-      $('#compassdirection').fadeIn(400)
-      $('#compassdirection').jqrotate(bearing);
-    } else {
-      $('#compassdirection').fadeOut(400);
-    }
-  },
-
-  /**
-   * Event coming from the navstate.
-   */
-  onTargetChanged: function(event, target) {
-    if (target) {
-      // TODO: Hide when no target set.
-      ui.targetPosition.setLatLng(target.latlon());
-      $(ui.targetPosition._icon).show();
-      $('#target').html(target.toHTML());
-    } else {
-      $('#target').text("(no target set)");
-      $(ui.targetPosition._icon).hide();
-    }
-  },
-
-  /**
-   * Event coming from the navstate.
-   */
-  onAccuracyChanged: function(event, accuracy) {
-    // TODO: Visualize accuracy on map, e.g., with a circle around the
-    // current position
-    if (accuracy) {
-      $('#positionalAccuracy').text('± ' + accuracy.formatDistance());
-      ui.accuracyMarker.setRadius(accuracy);
-      ui.accuracyMarker.setStyle({
-        fillOpacity: 0.3
-      });
-    } else {
-      $('#positionalAccuracy').text('?');
-      ui.accuracyMarker.setStyle({
-        fillOpacity: 0
-      });
-    }
-  },
-
-  /**
-   * The compass is managed solely by the ui.
-   */
-  onCompassUpdate: function(heading) {
-    if (ui.oldHeading && Math.abs(ui.oldHeading - heading.trueHeading) < 2) {
-      return;
-    }
-    ui.oldHeading = heading.trueHeading;
-    //console.debug("New heading: " + heading.trueHeading);
-    $('#compass').jqrotate(-heading.trueHeading);
-    $('#bearing').text(heading.trueHeading);
-    $('#directionalAccuracy').text('± ' + heading.headingAccuracy);
-    //ui.mapPosition.attributes.heading = heading;
-    //ui.vectorLayer.redraw();
-  },
-
-  /**
-   * The compass is managed solely by the ui.
-   */
-  onCompassError: function(error) {
-    console.debug("Compass error: " + error);
-    $('#compass').jqrotate(0);
-    // TODO: Show grayed-out compass image so that the user can see
-    // that the compass doesn't work.
-    $('#bearing').text('?');
-    $('#directionalAccuracy').text('?');
-  },
-
-  actionGotoPosition: function() {
-    if (ui.navstate.position) {
-      ui.map.panTo(new OpenLayers.LonLat(
-        ui.navstate.position.lon,
-        ui.navstate.position.lat)
-                     .transform(
-                       new OpenLayers.Projection("EPSG:4326"),
-                       new OpenLayers.Projection("EPSG:900913"))
-                    );
-      }
   }
 };
 
@@ -318,8 +109,7 @@ var app = {
     app.initialized = true;
 
     console.debug("Initializing App.");
-    app.navstate = new Navstate();
-    ui.initialize(app.navstate);
+    ui.initialize();
 
   }
 };
