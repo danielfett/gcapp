@@ -206,14 +206,14 @@ var ui = {
     }).addTo(this.map);
 
     // And a circle around the current position for the accuracy
-    this.accuracyMarker = new L.Circle([49.7777777, 6.666666], 40, {
+    /*this.accuracyMarker = new L.Circle([49.7777777, 6.666666], 40, {
       stroke: false,
       fill: true,
       fillColor: '#f90',
       fillOpacity: 0.3,
       clickable: false
       });
-    this.map.addLayer(this.accuracyMarker);
+    this.map.addLayer(this.accuracyMarker);*/
 
     // The marker indicating the current targer
     this.targetPosition = L.marker([49.7777777, 6.666666], {
@@ -240,10 +240,10 @@ var ui = {
     if (position) {
       ui.mapPosition.setLatLng(position.latlon());
       $(ui.mapPosition._icon).show();
-      ui.accuracyMarker.setLatLng(position.latlon());
+      /*ui.accuracyMarker.setLatLng(position.latlon());
       ui.accuracyMarker.setStyle({
         fillOpacity: 0.3
-      });
+      });*/
       $('#position').html(position.toHTML());
       // TODO: WTF? Why is the altitude a string "null" when not set
       // (and not the value null)?!  The W3C standard has this to say
@@ -261,9 +261,9 @@ var ui = {
     } else {
       // Hide position if not available.
       $(ui.mapPosition._icon).hide();
-      ui.accuracyMarker.setStyle({
+      /*ui.accuracyMarker.setStyle({
         fillOpacity: 0
-      });
+      });*/
     }
   },
 
@@ -310,15 +310,15 @@ var ui = {
     // current position
     if (accuracy) {
       $('#positionalAccuracy').text('± ' + accuracy.formatDistance());
-      ui.accuracyMarker.setRadius(accuracy);
+      /*ui.accuracyMarker.setRadius(accuracy);
       ui.accuracyMarker.setStyle({
         fillOpacity: 0.3
-      });
+      });*/
     } else {
       $('#positionalAccuracy').text('?');
-      ui.accuracyMarker.setStyle({
+      /*ui.accuracyMarker.setStyle({
         fillOpacity: 0
-      });
+      });*/
     }
   },
 
