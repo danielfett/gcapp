@@ -10,61 +10,19 @@ var ui = {
     this.initalized = true;
     console.debug("Initializing User Interface.");
 
-
     // Initialize the map.
-
-    // We need some icons.
-    var positionIcon = L.icon({
-      iconUrl: IMAGE_PATH + 'position-indicator-red.png',
-      //iconRetinaUrl: 'my-icon@2x.png',
-      iconSize: [44, 100],
-      iconAnchor: [22, 78],
-      popupAnchor: [22, 0]
-      //shadowUrl: '../img/position-indicator-red.png'
-      //shadowRetinaUrl: 'my-icon-shadow@2x.png',
-      //shadowSize: [68, 95],
-      //shadowAnchor: [22, 94]
-    });
 
     var targetIcon = L.icon({
       iconUrl: IMAGE_PATH + 'target-indicator-cross.png',
-      //iconRetinaUrl: 'my-icon@2x.png',
       iconSize: [44, 44],
       iconAnchor: [22, 22],
       popupAnchor: [22, 0]
-      //shadowUrl: '../img/position-indicator-red.png'
-      //shadowRetinaUrl: 'my-icon-shadow@2x.png',
-      //shadowSize: [68, 95],
-      //shadowAnchor: [22, 94]
     });
 
     this.map = L.map('map').setView([49.777777777, 6.66666666], 13);
     L.tileLayer('http://{s}.tile.osm.org/{z}/{x}/{y}.png', {
       attribution: '&copy; <a href="http://osm.org/copyright">OpenStreetMap</a> contributors'
     }).addTo(this.map);
-
-    // The marker indicating the current position
-    // TODO: Add rotation
-    this.mapPosition = L.marker([49.7777777, 6.666666], {
-      icon: positionIcon
-    }).addTo(this.map);
-
-    // And a circle around the current position for the accuracy
-    this.accuracyMarker = new L.Circle([49.7777777, 6.666666], 40, {
-      stroke: false,
-      fill: true,
-      fillColor: '#f90',
-      fillOpacity: 0.3,
-      clickable: false
-      });
-    this.map.addLayer(this.accuracyMarker);
-
-    // The marker indicating the current targer
-    this.targetPosition = L.marker([49.7777777, 6.666666], {
-      icon: targetIcon
-    }).addTo(this.map);
-
-    //$(this.targetPosition._icon).hide();
 
     var markers = new L.MarkerClusterGroup();
     for (var i = 0; i < 200; i++) {
@@ -83,23 +41,15 @@ var app = {
   initialize: function() {
     this.bindEvents();
   },
-  // Bind Event Listeners
-  //
-  // Bind any events that are required on startup. Common events are:
-  // 'load', 'deviceready', 'offline', and 'online'.
+
   bindEvents: function() {
     if (navigator.userAgent.match(/(iPhone|iPod|iPad|Android|BlackBerry|IEMobile)/)) {
       document.addEventListener('deviceready', this.onDeviceReady, false);
     } else {
       this.onDeviceReady(); //this is the browser
     }
-
-
   },
-  // deviceready Event Handler
-  //
-  // The scope of 'this' is the event. In order to call the 'receivedEvent'
-  // function, we must explicity call 'app.receivedEvent(...);'
+
   onDeviceReady: function() {
     if (app.initialized) {
       console.error("Initialize called twice!");
