@@ -90,10 +90,8 @@ body {
 }
 
 #right-column {
-    width: 75%;
-    right: 0; 
-    position: absolute;
-    height: 100%;
+    width: 2500;
+    height: 1600;
 }
 
 /* Navigation widget */
