@@ -44,18 +44,14 @@ body {
     width:100%;
 }
 
-#right-column {
-    width: 2500px;
-    height: 1600px;
-    position: absolute;
-    left: 0px;
-    top: 0px;
-}
-
 /* Map */
 
 #map {
     height: 1600px;
     width: 2560px;
     border: 1px solid grey;
+    position: absolute;
+    left: 0px;
+    top: 0px;
+
 }
