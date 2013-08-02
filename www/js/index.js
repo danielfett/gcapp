@@ -338,26 +338,6 @@ var app = {
 
     console.debug("Initializing App.");
     app.navstate = new Navstate();
-    try {
-      navigator.geolocation.watchPosition(function (position) {
-        app.navstate.updatePosition(
-          position.coords.latitude,
-          position.coords.longitude,
-          position.coords.altitude,
-          position.coords.accuracy,
-          position.coords.altitudeAccuracy);
-      }, function (error) {
-           console.debug("Error while determining position: ("
-                        + error.code + ") " + error.message);
-           app.navstate.updatePosition(undefined);
-         }, {
-           maximumAge: 3000,
-           timeout: 5000,
-           enableHighAccuracy: true
-         });
-    } catch (e) {
-      console.debug("Failed to initialize position watching: " + e);
-    }
     ui.initialize(app.navstate);
 
   }
