@@ -103,7 +103,7 @@
 
 
 // now the main app.
-(function(window, $, undefined) {
+(function(window, ui, $, undefined) {
 
   App = function() {
     // Currently selected geocache
@@ -121,47 +121,63 @@
    * 'load', 'deviceready', 'offline', and 'online'.
    */
   App.prototype.bindEvents = function() {
+
+    // There's probably a better solution than this...
+    var _this = this;
+    function odr() {
+      _this.onDeviceReady.call(_this);
+    }
     if (navigator.userAgent.match(/(iPhone|iPod|iPad|Android|BlackBerry|IEMobile)/)) {
-      document.addEventListener('deviceready', this.onDeviceReady, false);
+      document.addEventListener('deviceready', odr, false);
     } else {
-      $(document).ready(this.onDeviceReady); //this is the browser
+      $(document).ready(odr); //this is the browser
     }
   }
 
   /**
    * deviceready Event Handler
-   *
-   * The scope of 'this' is the event. In order to call the
-   * 'receivedEvent' function, we must explicity call
-   * 'app.receivedEvent(...);'
    */
   App.prototype.onDeviceReady = function() {
-    if (app.initialized) {
+    if (this.initialized) {
       console.error("Initialize called twice!");
       return;
     }
-    app.initialized = true;
+    this.initialized = true;
 
     console.debug("Initializing App.");
-    app.navstate = new Navstate();
-    ui.initialize(app);
-    app.thisFunctionWillGetANewNameSomeDay();
+    this.navstate = new Navstate();
+    this.geocaching = new Geocaching();
+    ui.initialize(this);
+    this.thisFunctionWillGetANewNameSomeDay();
   }
 
   App.prototype.thisFunctionWillGetANewNameSomeDay = function() {
-    var geocaches = [
-      {gcid: 'test1',
-       lat: 49.7123,
-       lon: 6.612366666,
-       type: 'REGULAR',
-       size: 20},
-      {gcid: 'test2',
-       lat: 49.7823,
-       lon: 6.682366666,
-       type: 'MULTI',
-       size: 30}
-    ];
-    this.triggerEvent('geocachesUpdated', geocaches);
+    var _this = this;
+    this.geocaching.ensureLogin('AGTLTestUser', '5dc60db7d5c7a86364c44091a')
+    .done(function() {
+      var bounds = ui.map.getBounds();
+      _this.geocaching.getListOfGeocaches(
+        new Coordinate(bounds.getNorth(), bounds.getWest()),
+        new Coordinate(bounds.getSouth(), bounds.getEast()))
+      .done(function(geocaches) {
+        _this.geocaching.downloadGeocachesInList(geocaches, false)
+        .done(function(output) {
+          _this.reloadGeocaches();
+        })
+        .fail(function(msg){ alert(msg); });
+      })
+      .fail(function(msg){ alert(msg); });
+    })
+    .fail(function(msg){ alert(msg); });
   }
 
-})(this, $);
+  App.prototype.reloadGeocaches = function() {
+    var _this = this;
+    Geocache.all().list(function(list) {
+      console.debug("App triggering geocachesUpdate with "
+                   + list.length + " geocaches");
+      _this.triggerEvent('geocachesUpdated', list);
+    });
+  }
+
+})(this, ui, $);

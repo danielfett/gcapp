@@ -85,7 +85,6 @@ Number.prototype.formatDistance = function() {
   Coordinate.prototype.fromDM = function (latdd, latmm, londd, lonmm) {
     this.lat = latdd + (latmm / 60.0);
     this.lon = londd + (lonmm / 60.0);
-    this.testLog();
   }
 
   /**

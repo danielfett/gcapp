@@ -1,3 +1,9 @@
+if (typeof SIMULATE_GC === 'undefined') {
+  SIMULATE_GC = false;
+} else {
+  console.debug("Geocaching.js running in simulation mode.");
+}
+
 (function(window, $, undefined) {
 
   /**
@@ -37,9 +43,7 @@
    * Create a new instance.
    */
   Geocaching = function() {
-    if (SIMULATE_GC) {
-      console.debug("Geocaching.js running in simulation mode.");
-    }
+
   }
 
   /**
@@ -48,6 +52,7 @@
    */
   Geocaching.prototype.ensureLogin = function(username, password) {
     var dfd = new $.Deferred();
+    var _this = this;
     checkLogin.call(this)
     .done(function(loggedInUser, indexDocument) {
       if (loggedInUser == undefined || loggedInUser.toLowerCase() != username.toLowerCase()) {
@@ -56,7 +61,7 @@
 	} else {
 	  console.debug("User '" + loggedInUser + "' is logged in, but '" + username + "' is supposed to. Loggin in again.");
 	}
-	login.call(this, indexDocument, username, password)
+	login.call(_this, indexDocument, username, password)
 	.done(function() {
 	  dfd.resolve("Login successful.");
 	})
@@ -117,14 +122,15 @@
    */
   Geocaching.prototype.getGeocache = function(id) {
     var dfd = new $.Deferred();
+    var _this = this;
     Geocache.findBy('gcid', id, function(geocache) {
       if (geocache == null) {
-        this.updateGeocache(id)
+        _this.updateGeocache(id)
         .done(function(geocache){
           dfd.resolve(geocache);
         })
-        .fail(function(msg){
-          dfd.reject(msg);
+        .fail(function(reason, msg){
+          dfd.reject(reason, msg);
         });
       } else {
         dfd.resolve(geocache);
@@ -151,7 +157,11 @@
     if (SIMULATE_GC) {
       var gc = new Geocache();
       persistence.add(gc);
-      dfd.resolve(parseCacheDocument.call(this, CACHE_DOC, gc));
+      if (parseCacheDocument.call(this, CACHE_DOC, gc)) {
+        dfd.resolve(gc);
+      } else {
+        dfd.fail('PREMIUM', 'Premium member cache');
+      }
       return dfd.promise();
     }
 
@@ -165,7 +175,12 @@
           geocache = new Geocache();
           persistence.add(geocache);
         }
-        dfd.resolve(parseCacheDocument.call(_this, doc, geocache));
+        if (parseCacheDocument.call(_this, doc, geocache)) {
+          dfd.resolve(geocache);
+        } else {
+          persistence.remove(geocache);
+          dfd.fail('PREMIUM', 'Premium member cache');
+        }
       });
     })
     .fail(function(msg){
@@ -222,6 +237,7 @@
    */
   Geocaching.prototype.downloadGeocachesInList = function(list, updateExisting) {
     var dfd = new $.Deferred();
+    var _this = this;
 
     // Simulation can be enabled by including the simulate-geocaching.js file.
     if (SIMULATE_GC) {
@@ -237,7 +253,7 @@
     var counter = list.length;
     var output = [];
     for (var i in list) {
-      action(list[i])
+      action.call(_this, list[i])
       .done(function(cache){
         output.push(cache);
         counter -= 1;
@@ -245,7 +261,7 @@
           dfd.resolve(output);
         }
       })
-      .fail(function(msg){
+      .fail(function(reason, msg){
         console.debug("Failed to download cache: " + msg);
         counter -= 1;
         if (! counter) {
@@ -266,6 +282,7 @@
    */
   function checkLogin() {
     var dfd = new $.Deferred();
+    var _this = this;
 
     // Simulation can be enabled by including the simulate-geocaching.js file.
     if (SIMULATE_GC) {
@@ -283,7 +300,7 @@
     })
     .done(function(data) {
       var doc = $('<output>').append($.parseHTML(data));
-      var status = checkLoginStatus.call(doc);
+      var status = checkLoginStatus.call(_this, doc);
       if (status === false) {
 	dfd.resolve(undefined, doc);
       } else if (status === undefined){
@@ -307,6 +324,7 @@
    */
   function login(doc, username, password) {
     var dfd = new $.Deferred();
+    var _this = this;
 
     // Simulation can be enabled by including the simulate-geocaching.js file.
     if (SIMULATE_GC) {
@@ -334,7 +352,7 @@
       var doc = $('<output>').append($.parseHTML(data));
 
       // Now check whether we are really logged in.
-      var status = checkLoginStatus(doc);
+      var status = checkLoginStatus.call(_this, doc);
       if (status === false) {
         dfd.reject('Username or password wrong, or some other error.');
       } else if (status === undefined) {
@@ -364,7 +382,8 @@
       || $('#ctl00_ContentBody_cvLoginFailed', doc).length) {
       console.debug("Not signed in; #ctl00_divNotSignedIn is present.");
       return false;
-    } else if ($('#ctl00_divSignedIn', doc).length) {
+    } else if ($('#ctl00_divSignedIn', doc).length
+             || $('#ctl00_ContentBody_hlLoginAsAnother', doc).length) {
       console.debug("User is signed in; #ctl00_divSignedIn is present.");
       return $('a.SignedInProfileLink', doc).text();
     } else {
@@ -502,8 +521,16 @@
    * (cache) with the data.
    */
   function parseCacheDocument(doc, cache) {
+
+    // This is a premium member only cache, skip it.
+    if ($('#PMOWarning', doc).length) {
+      return false;
+    }
+
     var coordinate = new Coordinate();
-    coordinate.tryParse($('.uxLatLon', doc).text());
+    coordinate.tryParse($('#uxLatLon', doc).text());
+    cache.lat = coordinate.lat;
+    cache.lon = coordinate.lon;
 
     // Source is web site where this cache was loaded from
     cache.source = 'geocaching.com';
@@ -530,15 +557,16 @@
     cache.owner = $('#ctl00_ContentBody_mcd1 a', doc).text();
 
     // The date when this cache was hidden.
-    // As we have different date formats depending on the language settings,
-    // we do not parse this for now.
+    //
+    // TODO: As we have different date formats depending on the
+    // language settings, we do not parse this for now.
     cache.rawHiddenDate = $('#ctl00_ContentBody_mcd2', doc).text().trim();
 
     // Difficulty, from 10 to 50.
-    cache.difficulty = _getRatingFromImage.call(this, $('#ctl00_ContentBody_diffTerr img:eq(0)', doc));
+    cache.difficulty = _getRatingFromImage.call(this, $('#ctl00_ContentBody_diffTerrStars img:eq(0)', doc));
 
     // Terrain, as above.
-    cache.terrain = _getRatingFromImage.call(this, $('#ctl00_ContentBody_diffTerr img:eq(1)', doc));
+    cache.terrain = _getRatingFromImage.call(this, $('#ctl00_ContentBody_diffTerrStars img:eq(1)', doc));
 
     // Size, from 10 to 40 or -1 if not set.
     cache.size = _getSizeFromImage.call(this, $('.minorCacheDetails img', doc));
