@@ -285,23 +285,22 @@ var ui = {
     for (var i in listOfGeocaches) {
       var geocache = listOfGeocaches[i];
       var marker = ui.markersOnMap[geocache.gcid];
-      var markerIsNew = false;
       if (marker == undefined) {
-        marker = ui.markersOnMap[geocache.gcid] = new L.Marker([0, 0]);
-        markerIsNew = true;
-      }
-      // This geocache is already shown on the map. Now compare the
-      // icon and its position.
-      //
-      // TODO: Check if there's a performance penalty when we just
-      // call .setLatLng on the marker regardless of whether it is
-      // at the correct position already or not
-      debugger;
-      marker.setLatLng([geocache.lat, geocache.lon]);
-      // TODO: Call marker.update() here for existing markers?
-      marker.icon = ui._getIconFromGeocache(geocache);
-      if (markerIsNew) {
+        marker = ui.markersOnMap[geocache.gcid]
+               = new L.Marker([geocache.lat, geocache.lon], {
+                 icon: ui._getIconFromGeocache(geocache)
+               });
         markersToAdd.push(marker);
+      } else {
+        // This geocache is already shown on the map. Now compare the
+        // icon and its position.
+        //
+        // TODO: Check if there's a performance penalty when we just
+        // call .setLatLng on the marker regardless of whether it is
+        // at the correct position already or not
+        marker.setLatLng([geocache.lat, geocache.lon]);
+        // TODO: Call marker.update() here for existing markers?
+        marker.icon = ui._getIconFromGeocache(geocache);
       }
     }
     ui.markersCluster.addLayers(markersToAdd);
