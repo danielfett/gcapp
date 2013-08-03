@@ -39,106 +39,33 @@ L.Marker.RotatedMarker = L.Marker.extend({
   },
 
   setIconAngle: function (iconAngle) {
-
     if (this._map) {
       this._removeIcon();
     }
-
     this.options.iconAngle = iconAngle;
-
     if (this._map) {
       this._initIcon();
       this._reset();
     }
   }
-
 });
-
-
-/**
- * Navstate is the object capturing the current "state of navigation",
- * i.e., the position, the current navigation target etc.
- *
- * It is an Observable object, i.e., the UI can watch for changes here.
- */
-(function(window, undefined) {
-  Navstate = function () {
-    // The current position (a Coordinate)
-    this.position = new Coordinate();
-
-    // The current position accuracy
-    this.accuracy = undefined;
-
-    // The current altitude accuracy
-    this.altitudeAccuracy = undefined;
-
-    // The current target.
-    this.target = undefined;
-
-    // The bearing to the target ("in which direction is the target?")
-    this.bearing = undefined;
-
-    // The distance to the target in meters.
-    this.distance = undefined;
-  }
-
-  Navstate.prototype = new Observable();
-
-  /**
-   * Update the current position and recalculate the bearing to the
-   * target.
-   */
-  Navstate.prototype.updatePosition = function(newlat, newlon, newalt, acc, altacc) {
-    if (! newlat) {
-      this.position = undefined;
-      this.accuracy = undefined;
-      this.altitudeAccuracy = undefined;
-      console.debug("Undefined position.");
-    } else {
-      this.position = new Coordinate(newlat, newlon, newalt);
-      this.accuracy = acc;
-      this.altitudeAccuracy = altacc;
-      console.debug("Position updated to " + this.position.toString());
-    }
-    this.triggerEvent('positionChanged', this.position);
-    updateBearingDistance.call(this);
-    this.triggerEvent('accuracyChanged', this.accuracy);
-    this.triggerEvent('altitudeAccuracyChanged', this.altitudeAccuracy);
-  }
-
-  /**
-   * Set a new target. Update the bearing accordingly.
-   */
-  Navstate.prototype.setTarget = function(newTarget) {
-    this.target = newTarget;
-    this.triggerEvent('targetChanged', this.target);
-    updateBearingDistance.call(this);
-  }
-
-  /**
-   * Recalculate distance & bearing to target.
-   */
-  function updateBearingDistance() {
-    if (this.position && this.target) {
-      this.bearing = this.position.bearingTo(this.target);
-      this.distance = this.position.distanceTo(this.target);
-    } else {
-      this.bearing = undefined;
-      this.distance = undefined;
-    }
-    this.triggerEvent('bearingChanged',  this.bearing);
-    this.triggerEvent('distanceChanged', this.distance);
-    console.debug("bearing and distance changed to " + this.bearing + " / " + this.distance);
-  }
-
-})(this);
-
 
 IMAGE_PATH="img/";
 
 // the UI
 var ui = {
-  initialize: function(navstate) {
+  /**
+   * The list of geocaches and their markers that are currently shown
+   * on the map.
+   */
+  markersOnMap: {},
+
+  /**
+   * The list of initialized Icons for the map
+   */
+  iconList: {},
+
+  initialize: function(app) {
     if (this.initialized) {
       console.error("Already initialized!");
       return;
@@ -146,12 +73,13 @@ var ui = {
     this.initalized = true;
     console.debug("Initializing User Interface.");
 
-    this.navstate = navstate;
-    this.navstate.addEventListener('positionChanged', this.onPositionChanged);
-    this.navstate.addEventListener('targetChanged', this.onTargetChanged);
-    this.navstate.addEventListener('bearingChanged', this.onBearingChanged);
-    this.navstate.addEventListener('distanceChanged', this.onDistanceChanged);
-    this.navstate.addEventListener('accuracyChanged', this.onAccuracyChanged);
+    this.app = app;
+    this.app.navstate.addEventListener('positionChanged', this.onPositionChanged);
+    this.app.navstate.addEventListener('targetChanged', this.onTargetChanged);
+    this.app.navstate.addEventListener('bearingChanged', this.onBearingChanged);
+    this.app.navstate.addEventListener('distanceChanged', this.onDistanceChanged);
+    this.app.navstate.addEventListener('accuracyChanged', this.onAccuracyChanged);
+    this.app.addEventListener('geocachesUpdated', this.onGeocachesUpdated);
 
     // We want to observe the compass here. Note that we do this in
     // the user interface because the compass is really needed only
@@ -206,6 +134,7 @@ var ui = {
     }).addTo(this.map);
 
     // And a circle around the current position for the accuracy
+    // TODO: This causes a severe performance regression at least on Nexus 10
     /*this.accuracyMarker = new L.Circle([49.7777777, 6.666666], 40, {
       stroke: false,
       fill: true,
@@ -215,21 +144,16 @@ var ui = {
       });
     this.map.addLayer(this.accuracyMarker);*/
 
-    // The marker indicating the current targer
+    // The marker indicating the current target
     this.targetPosition = L.marker([49.7777777, 6.666666], {
       icon: targetIcon
     }).addTo(this.map);
 
-    //$(this.targetPosition._icon).hide();
+    $(this.targetPosition._icon).hide();
     $(this.mapPosition._icon).hide();
 
-    var markers = new L.MarkerClusterGroup();
-    for (var i = 0; i < 200; i++) {
-      markers.addLayer(new L.Marker([Math.random() + 49, Math.random() + 6], {
-        icon: targetIcon
-      }));
-    }
-    this.map.addLayer(markers);
+    this.markersCluster = new L.MarkerClusterGroup();
+    this.map.addLayer(this.markersCluster);
 
   },
 
@@ -350,75 +274,70 @@ var ui = {
     $('#directionalAccuracy').text('?');
   },
 
-  actionGotoPosition: function() {
-    if (ui.navstate.position) {
-      ui.map.panTo(new OpenLayers.LonLat(
-        ui.navstate.position.lon,
-        ui.navstate.position.lat)
-                     .transform(
-                       new OpenLayers.Projection("EPSG:4326"),
-                       new OpenLayers.Projection("EPSG:900913"))
-                    );
+  /**
+   * The list of geocaches has changed.
+   */
+  onGeocachesUpdated: function(event, listOfGeocaches) {
+    // TODO: Currently, markers are never removed. That *should be*
+    // fine, because geocaches are never removed from the geocaching
+    // database either (they become archived geocaches).
+    var markersToAdd = [];
+    for (var i in listOfGeocaches) {
+      var geocache = listOfGeocaches[i];
+      var marker = ui.markersOnMap[geocache.gcid];
+      var markerIsNew = false;
+      if (marker == undefined) {
+        marker = ui.markersOnMap[geocache.gcid] = new L.Marker([0, 0]);
+        markerIsNew = true;
       }
-  }
-};
-
-// now the main app.
-var app = {
-  // Application Constructor
-  initialize: function() {
-    this.bindEvents();
+      // This geocache is already shown on the map. Now compare the
+      // icon and its position.
+      //
+      // TODO: Check if there's a performance penalty when we just
+      // call .setLatLng on the marker regardless of whether it is
+      // at the correct position already or not
+      debugger;
+      marker.setLatLng([geocache.lat, geocache.lon]);
+      // TODO: Call marker.update() here for existing markers?
+      marker.icon = ui._getIconFromGeocache(geocache);
+      if (markerIsNew) {
+        markersToAdd.push(marker);
+      }
+    }
+    ui.markersCluster.addLayers(markersToAdd);
   },
-  // Bind Event Listeners
-  //
-  // Bind any events that are required on startup. Common events are:
-  // 'load', 'deviceready', 'offline', and 'online'.
-  bindEvents: function() {
-    if (navigator.userAgent.match(/(iPhone|iPod|iPad|Android|BlackBerry|IEMobile)/)) {
-      document.addEventListener('deviceready', this.onDeviceReady, false);
+
+  /**
+   * Determine the geocache icon from the geocache object.
+   *
+   * The function uses the iconList object to determine whether an
+   * icon for this type and size of geocache already exists. If so,
+   * the icon is returned. Otherwise, a new icon is created and added
+   * to the iconList before returning it. The iconList is indexed by a
+   * string containing the type and size of the geocache. We could
+   * have used a two-dimensional data structure instead, but this way
+   * the list is easier to handle.
+   *
+   * TODO: We probably also want to show some other attributes, e.g.,
+   * the archive state of the geocache.
+   */
+  _getIconFromGeocache: function(geocache) {
+    var id = (geocache.type && geocache.size) ? (geocache.type + '-' + geocache.size) : 'undefined';
+    if (ui.iconList[id]) {
+      return ui.iconList[id];
+    }
+    var options = {};
+    if (geocache.type && geocache.size) {
+      // TODO: Fill in these options depending on the real geocache
+      // data.
+      options.iconUrl = IMAGE_PATH + "box-green.svg";
+      options.iconSize = [40, 40];
+      options.iconAnchor = [20, 20];
     } else {
-      $(document).ready(this.onDeviceReady); //this is the browser
+      // TODO: Add notfound.png and other options for this icon if
+      // this should ever really be needed.
+      options.iconUrl = IMAGE_PATH + 'notfound.png';
     }
-
-
-  },
-  // deviceready Event Handler
-  //
-  // The scope of 'this' is the event. In order to call the 'receivedEvent'
-  // function, we must explicity call 'app.receivedEvent(...);'
-  onDeviceReady: function() {
-    if (app.initialized) {
-      console.error("Initialize called twice!");
-      return;
-    }
-    app.initialized = true;
-
-    console.debug("Initializing App.");
-    app.navstate = new Navstate();
-    try {
-      navigator.geolocation.watchPosition(function (position) {
-        app.navstate.updatePosition(
-          position.coords.latitude,
-          position.coords.longitude,
-          position.coords.altitude,
-          position.coords.accuracy,
-          position.coords.altitudeAccuracy);
-      }, function (error) {
-           console.debug("Error while determining position: ("
-                        + error.code + ") " + error.message);
-           app.navstate.updatePosition(undefined);
-         }, {
-           maximumAge: 3000,
-           timeout: 5000,
-           enableHighAccuracy: true
-         });
-    } catch (e) {
-      console.debug("Failed to initialize position watching: " + e);
-    }
-    ui.initialize(app.navstate);
-
+    return ui.iconList[id] = new L.Icon(options);
   }
 };
-
-
-app.initialize();
