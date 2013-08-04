@@ -1,9 +1,3 @@
-if (typeof SIMULATE_GC === 'undefined') {
-  SIMULATE_GC = false;
-} else {
-  console.debug("Geocaching.js running in simulation mode.");
-}
-
 (function(window, $, undefined) {
 
   /**
@@ -148,23 +142,6 @@ if (typeof SIMULATE_GC === 'undefined') {
     var dfd = new $.Deferred();
     var _this = this;
 
-    // Simulation can be enabled by including the
-    // simulate-geocaching.js file.
-    //
-    // TODO: This will fail if the geocache is already in the
-    // database. Instead, one could handle simulation in readUrl and
-    // just provide dummy documents to the calling method there.
-    if (SIMULATE_GC) {
-      var gc = new Geocache();
-      persistence.add(gc);
-      if (parseCacheDocument.call(this, CACHE_DOC, gc)) {
-        dfd.resolve(gc);
-      } else {
-        dfd.fail('PREMIUM', 'Premium member cache');
-      }
-      return dfd.promise();
-    }
-
     // Fetch geocache from URL
     var url = 'http://www.geocaching.com/seek/cache_details.aspx?wp=' + id;
     readUrl.call(this, url)
@@ -201,12 +178,6 @@ if (typeof SIMULATE_GC === 'undefined') {
     var dfd = new $.Deferred();
     var _this = this;
 
-    // Simulation can be enabled by including the simulate-geocaching.js file.
-    if (SIMULATE_GC) {
-      dfd.resolve({dummy: 'dummy'});
-      return dfd.promise();
-    }
-
     var center = new Coordinate(
       (coordinate1.lat + coordinate2.lat)/2,
       (coordinate1.lon + coordinate2.lon)/2);
@@ -238,15 +209,6 @@ if (typeof SIMULATE_GC === 'undefined') {
   Geocaching.prototype.downloadGeocachesInList = function(list, updateExisting) {
     var dfd = new $.Deferred();
     var _this = this;
-
-    // Simulation can be enabled by including the simulate-geocaching.js file.
-    if (SIMULATE_GC) {
-      this.updateGeocache('dummy')
-      .done(function(geocache) {
-        dfd.resolve([geocache]);
-      });
-      return dfd.promise();
-    }
 
     var action = updateExisting ? this.updateGeocache : this.getGeocache;
 
@@ -284,12 +246,6 @@ if (typeof SIMULATE_GC === 'undefined') {
     var dfd = new $.Deferred();
     var _this = this;
 
-    // Simulation can be enabled by including the simulate-geocaching.js file.
-    if (SIMULATE_GC) {
-      dfd.resolve('AGTLTestUser', undefined);
-      return dfd.promise();
-    }
-
     // Retrieve the home page.
     //
     // TODO: Check if other pages of the web
@@ -325,12 +281,6 @@ if (typeof SIMULATE_GC === 'undefined') {
   function login(doc, username, password) {
     var dfd = new $.Deferred();
     var _this = this;
-
-    // Simulation can be enabled by including the simulate-geocaching.js file.
-    if (SIMULATE_GC) {
-      dfd.reject("Cannot log in in simulation mode.");
-      return dfd.promise();
-    }
 
     console.debug("Starting login.");
     var formData = $('form', doc).serializeArray();
