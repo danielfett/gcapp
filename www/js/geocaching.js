@@ -41,6 +41,34 @@
   }
 
   /**
+   * This test function is currently called when the document has
+   * finished loading and the user is logged in. You may add stuff
+   * here.
+   */
+/*  Geocaching.prototype.test = function() {
+    var _this = this;
+    this.getListOfGeocaches(new Coordinate(49.777, 6.666), new Coordinate(49.750, 6.650))
+    .done(function(list) {
+      console.debug(list);
+      _this.downloadGeocachesInList(list)
+      .done(function(list){
+        alert(list);
+        console.debug($(list).serialize());
+      })
+      .fail(function(msg) {
+        alert(msg);
+      });
+    })
+    .fail(function(msg) {
+      alert(msg);
+    });
+  }*/
+
+  /*****************************************************************
+   * Functions for user management (logging in, etc.)
+   ****************************************************************/
+
+  /**
    * Make sure that the user with the given user name (and password)
    * is logged in.
    */
@@ -87,189 +115,6 @@
     .progress(function(progress, msg) {
       dfd.notify(progress, msg);
     });;
-    return dfd.promise();
-  }
-
-  /**
-   * This test function is currently called when the document has
-   * finished loading and the user is logged in. You may add stuff
-   * here.
-   */
-/*  Geocaching.prototype.test = function() {
-    var _this = this;
-    this.getListOfGeocaches(new Coordinate(49.777, 6.666), new Coordinate(49.750, 6.650))
-    .done(function(list) {
-      console.debug(list);
-      _this.downloadGeocachesInList(list)
-      .done(function(list){
-        alert(list);
-        console.debug($(list).serialize());
-      })
-      .fail(function(msg) {
-        alert(msg);
-      });
-    })
-    .fail(function(msg) {
-      alert(msg);
-    });
-  }*/
-
-  /**
-   * Retrieve a geocache from the local database and return it;
-   * If the geocache is not in the local database, retrieve it.
-   */
-  Geocaching.prototype.getGeocache = function(id) {
-    var dfd = new $.Deferred();
-    var _this = this;
-
-    // Check if geocache is in the database
-    Geocache.findBy('gcid', id, function(geocache) {
-      if (geocache == null) {
-        // Not in DB, retrieve it.
-        _this.updateGeocache(id)
-        .done(function(geocache){
-          dfd.resolve(geocache);
-        })
-        .fail(function(reason, msg){
-          dfd.reject(reason, msg);
-        })
-        .progress(function(progress, msg) {
-          dfd.notify(progress, msg);
-        });
-      } else {
-        // Geocache is in DB, so return it.
-        dfd.resolve(geocache);
-      }
-    });
-    return dfd.promise();
-  }
-
-  /**
-   * Get a geocache (identified by the GCID) from the locate
-   * database.
-   *
-   * - updateIfAvailable: If the geocache is already in the local
-   *   database, update it before returning it.
-   *
-   * - downloadIfNotAvailable: If the geocache is not in the local
-   *   database, download it.
-   */
-  Geocaching.prototype.getGeocache = function(id, updateIfAvailable, downloadIfNotAvailable) {
-    var dfd = new $.Deferred();
-    var _this = this;
-
-    Geocache.findBy('gcid', id, function(geocache) {
-      if ((geocache == null && downloadIfNotAvailable) ||
-          (geocache != null && updateIfAvailable)) {
-        // The geocache is not in the local DB but we want to download
-        // it, or it is already there but we like to update it.
-
-        // Retrieve geocache document.
-        var url = 'http://www.geocaching.com/seek/cache_details.aspx?wp=' + id;
-        dfd.notify(undefined, "Retrieving Geocache " + id + "...");
-        readUrl.call(this, url)
-        .done(function(doc){
-          if (geocache == null) {
-            // Geocache was not in DB before, so add it.
-            geocache = new Geocache();
-          }
-
-          dfd.notify(undefined, "Parsing Geocache " + id + "...");
-
-          if (parseCacheDocument.call(_this, doc, geocache)) {
-            // Add the geocache to the database. If it's already
-            // there, nothing happens.
-            persistence.add(geocache);
-            dfd.notify(undefined, "Done.");
-            dfd.resolve(geocache);
-          } else {
-            dfd.reject('PREMIUM', 'Premium member cache');
-          }
-        })
-        .fail(function(msg){
-          dfd.reject(undefined, msg);
-        });
-      } else {
-        // geocache is either null or the geocache object from the
-        // database.
-        dfd.resolve(geocache);
-      }
-    });
-
-    return dfd.promise();
-  }
-
-  /**
-   * Retrieve a list of geocaches that are in the rectangle area
-   * defined by the two given coordinate. Actually, a circular area is
-   * searched that is bigger than the given rectangle.
-   *
-   * The list that is returned can be used with downloadGeocachesInList.
-   */
-  Geocaching.prototype.getListOfGeocaches = function(coordinate1, coordinate2) {
-    var dfd = new $.Deferred();
-    var _this = this;
-
-    var center = new Coordinate(
-      (coordinate1.lat + coordinate2.lat)/2,
-      (coordinate1.lon + coordinate2.lon)/2);
-    var dist = (center.distanceTo(coordinate1)/1000)/2;
-    var url = 'http://www.geocaching.com/seek/nearest.aspx?lat=' + center.lat + '&lng=' + center.lon + '&dist=' + dist;
-
-    dfd.notify(undefined, "Retrieving List of Geocaches");
-    readUrl.call(this, url)
-    .done(function(doc){
-      fetchListRecursively.call(_this, dfd, doc, [], 0);
-    })
-    .fail(function(msg){
-      dfd.reject(msg);
-    });
-    return dfd.promise();
-  }
-
-  /**
-   * Download all geocaches that are contained in the given list. If
-   * updateExisting is true, update geocaches that are already in the
-   * local database. Returns (via Deferred) an array containing the
-   * Geocache objects.
-   *
-   * TODO: Check if this fully works, build some better test case.
-   *
-   * TODO: It would be nice to have some sort of smart strategy to
-   * update the geocaches. For example, one could update only those
-   * geocaches that are older than 14 days.
-   */
-  Geocaching.prototype.downloadGeocachesInList = function(list, updateExisting) {
-    var dfd = new $.Deferred();
-    var _this = this;
-
-    var numberOfGeocaches = list.length;
-    var output = [];
-
-    dfd.notify([0, list.length], "Need to download " + list.length + " Geocaches");
-
-    for (var i in list) {
-      this.updateGeoache(list[i], updateExisting, true)
-      .done(function(cache){
-        console.debug("Downloaded geocache.");
-        output.push(cache);
-      })
-      .fail(function(reason, msg){
-        console.debug("Failed to download cache: " + msg);
-        numberOfGeocaches -= 1;
-      })
-      .then(function() {
-        if (output.length == numberOfGeocaches) {
-          dfd.resolve(output);
-        }
-      })
-      .progress(function(progress, msg) {
-        // TODO: If the called function reports a progress (!=
-        // undefined), we should somehow incorporate this.
-        dfd.notify(undefined, msg);
-      });
-    }
-
     return dfd.promise();
   }
 
@@ -382,6 +227,144 @@
       return undefined;
     }
   }
+
+
+  /*****************************************************************
+   * Functions for downloading stuff
+   ****************************************************************/
+
+
+  /**
+   * Get a geocache (identified by the GCID) from the locate
+   * database.
+   *
+   * - updateIfAvailable: If the geocache is already in the local
+   *   database, update it before returning it.
+   *
+   * - downloadIfNotAvailable: If the geocache is not in the local
+   *   database, download it.
+   */
+  Geocaching.prototype.getGeocache = function(id, updateIfAvailable, downloadIfNotAvailable) {
+    var dfd = new $.Deferred();
+    var _this = this;
+
+    Geocache.findBy('gcid', id, function(geocache) {
+      if ((geocache == null && downloadIfNotAvailable) ||
+          (geocache != null && updateIfAvailable)) {
+        // The geocache is not in the local DB but we want to download
+        // it, or it is already there but we like to update it.
+
+        // Retrieve geocache document.
+        var url = 'http://www.geocaching.com/seek/cache_details.aspx?wp=' + id;
+        dfd.notify(undefined, "Retrieving Geocache " + id + "...");
+        readUrl.call(this, url)
+        .done(function(doc){
+          if (geocache == null) {
+            // Geocache was not in DB before, so add it.
+            geocache = new Geocache();
+          }
+
+          dfd.notify(undefined, "Parsing Geocache " + id + "...");
+
+          if (parseCacheDocument.call(_this, doc, geocache)) {
+            // Add the geocache to the database. If it's already
+            // there, nothing happens.
+            persistence.add(geocache);
+            dfd.notify(undefined, "Done.");
+            dfd.resolve(geocache);
+          } else {
+            console.debug("This is a premium member cache!");
+            dfd.reject('PREMIUM', 'Premium member cache');
+          }
+        })
+        .fail(function(msg){
+          dfd.reject(undefined, msg);
+        });
+      } else {
+        // geocache is either null or the geocache object from the
+        // database.
+        dfd.resolve(geocache);
+      }
+    });
+
+    return dfd.promise();
+  }
+
+  /**
+   * Retrieve a list of geocaches that are in the rectangle area
+   * defined by the two given coordinate. Actually, a circular area is
+   * searched that is bigger than the given rectangle.
+   *
+   * The list that is returned can be used with downloadGeocachesInList.
+   */
+  Geocaching.prototype.getListOfGeocaches = function(coordinate1, coordinate2) {
+    var dfd = new $.Deferred();
+    var _this = this;
+
+    var center = new Coordinate(
+      (coordinate1.lat + coordinate2.lat)/2,
+      (coordinate1.lon + coordinate2.lon)/2);
+    var dist = (center.distanceTo(coordinate1)/1000)/2;
+    var url = 'http://www.geocaching.com/seek/nearest.aspx?lat=' + center.lat + '&lng=' + center.lon + '&dist=' + dist;
+
+    dfd.notify(undefined, "Retrieving List of Geocaches");
+    readUrl.call(this, url)
+    .done(function(doc){
+      fetchListRecursively.call(_this, dfd, doc, [], 0);
+    })
+    .fail(function(msg){
+      dfd.reject(msg);
+    });
+    return dfd.promise();
+  }
+
+  /**
+   * Download all geocaches that are contained in the given list. If
+   * updateExisting is true, update geocaches that are already in the
+   * local database. Returns (via Deferred) an array containing the
+   * Geocache objects.
+   *
+   * TODO: Check if this fully works, build some better test case.
+   *
+   * TODO: It would be nice to have some sort of smart strategy to
+   * update the geocaches. For example, one could update only those
+   * geocaches that are older than 14 days.
+   */
+  Geocaching.prototype.downloadGeocachesInList = function(list, updateExisting) {
+    var dfd = new $.Deferred();
+    var _this = this;
+
+    var numberOfGeocaches = list.length;
+    var output = [];
+
+    dfd.notify([0, numberOfGeocaches], "Need to download " + list.length + " Geocaches");
+
+    for (var i in list) {
+      this.getGeocache(list[i], updateExisting, true)
+      .done(function(cache){
+        console.debug("Downloaded geocache.");
+        output.push(cache);
+      })
+      .fail(function(reason, msg){
+        console.debug("Failed to download cache: " + msg);
+        numberOfGeocaches -= 1;
+      })
+      .then(function() {
+        dfd.notify([output.length, numberOfGeocaches], "Need to download " + list.length + " Geocaches");
+        if (output.length == numberOfGeocaches) {
+          dfd.resolve(output);
+        }
+      })
+      .progress(function(progress, msg) {
+        // TODO: If the called function reports a progress (!=
+        // undefined), we should somehow incorporate this.
+        dfd.notify(undefined, msg);
+      });
+    }
+
+    return dfd.promise();
+  }
+
 
   /**
    * Walk through the pages of the geocache listing at
@@ -511,14 +494,13 @@
   function parseCacheDocument(doc, cache) {
 
     // This is a premium member only cache, skip it.
-    if ($('#PMOWarning', doc).length) {
+    if ($('.PMOWarning', doc).length) {
       return false;
     }
 
     var coordinate = new Coordinate();
     coordinate.tryParse($('#uxLatLon', doc).text());
-    cache.lat = coordinate.lat;
-    cache.lon = coordinate.lon;
+    cache.coordinate(coordinate);
 
     if (! cache.lat || ! cache.lon) {
       console.error("Cache has undefined lat or lon, investigate!");
