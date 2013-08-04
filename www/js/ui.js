@@ -1,5 +1,10 @@
 
-// Add rotation to jQuery
+/**
+ * Add rotation to jQuery
+ *
+ * With this function, .jqrotate can be used to rotate an HTML
+ * element.
+ */
 (function($){
  var _e = document.createElement("canvas").width
  $.fn.cssrotate = function(d) {
@@ -18,9 +23,17 @@
  };
 })(jQuery);
 
-// Add rotation of markers to leaflet.js
-// found at http://stackoverflow.com/questions/13494649/rotate-marker-in-leaflet
-// TODO: It seems like the rotation center is not the iconAnchor.
+/**
+ * Add rotation of markers to leaflet.js
+ *
+ * Found at
+ * http://stackoverflow.com/questions/13494649/rotate-marker-in-leaflet.
+ * We may one day use this to rotate the position indicator such that
+ * it shows in which direction the user is looking (look at the
+ * position indicator image to see what I mean).
+ *
+ * TODO: It seems like the rotation center is not the iconAnchor.
+ */
 L.Marker.RotatedMarker = L.Marker.extend({
   _reset: function() {
     var pos = this._map.latLngToLayerPoint(this._latlng).round();
@@ -156,7 +169,11 @@ var ui = {
     $(this.targetPosition._icon).hide();
     $(this.mapPosition._icon).hide();
 
-    this.markersCluster = new L.MarkerClusterGroup();
+    this.markersCluster = new L.MarkerClusterGroup({
+      animateAddingMarkers: true,
+      showCoverageOnHover: false,
+      disableClusteringAtZoom: 15
+    });
     this.map.addLayer(this.markersCluster);
 
   },
@@ -279,7 +296,14 @@ var ui = {
   },
 
   /**
-   * The list of geocaches has changed.
+   * Update the geocaches shown on the map.
+   *
+   * Adds a marker for every new geocache. Attach an event listener to
+   * the geocache so that the marker icon gets updated if the geocache
+   * properties change. Add a onclick-handler to the marker to show a
+   * popup if the geocache is clicked on. We create that popup
+   * dynamically as soon as the geocache is clicked to avoid creating
+   * thousands of popups that are never used.
    */
   onGeocachesUpdated: function(event, listOfGeocaches) {
     // TODO: Currently, markers are never removed. That *should be*
@@ -322,7 +346,8 @@ var ui = {
    * the list is easier to handle.
    *
    * TODO: We probably also want to show some other attributes, e.g.,
-   * the archive state of the geocache.
+   * the archive state of the geocache and whether it was found or
+   * not!
    */
   _getIconFromGeocache: function(geocache) {
     var id = (geocache.type && geocache.size)
@@ -333,11 +358,17 @@ var ui = {
     }
     var options = {};
     if (geocache.type && geocache.size) {
-      // TODO: Fill in these options depending on the real geocache
-      // data.
-      options.iconUrl = IMAGE_PATH + "box-green.svg";
-      options.iconSize = [40, 40];
-      options.iconAnchor = [20, 20];
+      // TODO: Improve visual representation of geocaches
+
+      // Calculate icon size depending on geocache size.
+      var iconSize = (geocache.size < 0)
+                   ? 20
+                   : (20 + 0.5 * geocache.size);
+
+      // Icon URL depends on geocache type
+      options.iconUrl = IMAGE_PATH + "geocaches/" + geocache.type + ".svg";
+      options.iconSize = [iconSize, iconSize];
+      options.iconAnchor = [iconSize/2, iconSize/2];
     } else {
       // TODO: Add notfound.png and other options for this icon if
       // this should ever really be needed.
@@ -347,15 +378,17 @@ var ui = {
   },
 
   /**
-   * Callback that is triggered when the data for a geocache
-   * changes. Update the marker that is attached to a geocache and
-   * shown on the map.
+   * Callback that is triggered when the data for a geocache changes.
+   *
+   * Update the marker that is attached to a geocache and shown on the
+   * map.
    */
   _updateGeocacheMarker: function(event, object, property, newValue) {
     if (property == 'lat' || property == 'lon') {
+      // Position changed
       object.marker.setLatLng(object.coordinate().latlon());
     } else if (property == 'type' || property == 'size') {
-      console.debug("Property " + property + " of geocache " + object.gcid + " changed to new value " + newValue);
+      // Attribute relevant to the icon changed.
       object.marker.setIcon(ui._getIconFromGeocache(object));
     }
   },
@@ -363,6 +396,9 @@ var ui = {
   /**
    * Assemble the HTML code that is shown inside the geocache popup
    * window.
+   *
+   * TODO: The progress element has no visual representation on
+   * Android, so we need to use a different approach here.
    */
   _createPopupContent: function(geocache) {
     var text = "<span class='gcid'>"
@@ -378,6 +414,8 @@ var ui = {
 
   /**
    * Event coming from the App.
+   *
+   * If the progress bar is visible, hide it.
    */
   onClearProgress: function(event) {
     $('#logwindow progress').hide();
@@ -385,9 +423,18 @@ var ui = {
 
   /**
    * Event coming from the App.
+   *
+   * If there is a progress given (in the format [currentNumber,
+   * maxNumber], i.e., "Downloading Geocache 4 of 6" would be encoded
+   * as [4,6]) then show that progress using the progress bar. If not,
+   * ignore it. The progressbar can be cleared by onClearProgress.
+   *
+   * Also adds the text given as message to the list of messages shown
+   * in the main view.
    */
   onProgress: function(event, progress, message) {
     if (progress) {
+      $('#logwindow progress').show();
       $('#logwindow progress')
       .attr('max', progress[1])
       .attr('value', progress[0]);

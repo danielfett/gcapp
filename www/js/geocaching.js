@@ -352,6 +352,7 @@
       .then(function() {
         dfd.notify([output.length, numberOfGeocaches], "Need to download " + list.length + " Geocaches");
         if (output.length == numberOfGeocaches) {
+          console.debug("output.length = " + output.length + " and numberOfGeocaches = " + numberOfGeocaches);
           dfd.resolve(output);
         }
       })

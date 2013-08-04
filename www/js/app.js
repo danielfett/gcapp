@@ -174,10 +174,13 @@
         _this.geocaching.downloadGeocachesInList(geocaches, true)
         .done(function(output) {
           _this.triggerEvent('clearProgress');
-          _this.reloadGeocaches();
+          //
         })
         .fail(fail)
-        .progress(prog);
+        .progress(prog)
+        .progress(function() {
+          _this.reloadGeocaches();
+        });
       })
       .fail(fail)
       .progress(prog);
