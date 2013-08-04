@@ -500,12 +500,6 @@
 
     var coordinate = new Coordinate();
     coordinate.tryParse($('#uxLatLon', doc).text());
-    cache.coordinate(coordinate);
-
-    if (! cache.lat || ! cache.lon) {
-      console.error("Cache has undefined lat or lon, investigate!");
-      debugger;
-    }
 
     // Source is web site where this cache was loaded from
     cache.source = 'geocaching.com';
@@ -576,6 +570,15 @@
                   && _basename.call(this, $('ctl00_ContentBody_GeoNav_logTypeImage', doc).attr('src')) == '3');
 
     persistence.flush();
+
+    var test_props = ['lat', 'lon', 'guid', 'gcid', 'difficulty', 'terrain', 'size', 'type'];
+    for (var i in test_props) {
+      if (cache[test_props[i]] === undefined) {
+        alert("Undefined property: " + test_props[i]);
+        debugger;
+      }
+    }
+
     return true;
   }
 
@@ -644,8 +647,8 @@
    * Get the type of a geocache from the image URL.
    */
   function _getTypeFromImage(img) {
-    var type_string = _basename.call(this, $(img).attr('src'));
-    return TYPE_STRINGS.type_string;
+    var type_string = _basename.call(this, img.attr('src'));
+    return TYPE_STRINGS[type_string];
   }
 
   /**

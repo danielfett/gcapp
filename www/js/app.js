@@ -148,7 +148,8 @@
     this.navstate = new Navstate();
     this.geocaching = new Geocaching();
     ui.initialize(this);
-    this.thisFunctionWillGetANewNameSomeDay();
+    this.reloadGeocaches();
+    //this.thisFunctionWillGetANewNameSomeDay();
   }
 
   App.prototype.thisFunctionWillGetANewNameSomeDay = function() {
@@ -188,7 +189,6 @@
   App.prototype.reloadGeocaches = function() {
     var _this = this;
     Geocache.all().list(function(list) {
-      debugger;
       console.debug("App triggering geocachesUpdate with "
                    + list.length + " geocaches");
       _this.triggerEvent('geocachesUpdated', list);

@@ -50,7 +50,7 @@ L.Marker.RotatedMarker = L.Marker.extend({
   }
 });
 
-IMAGE_PATH="img/";
+IMAGE_PATH="../img/";
 
 // the UI
 var ui = {
@@ -286,24 +286,23 @@ var ui = {
     var markersToAdd = [];
     for (var i in listOfGeocaches) {
       var geocache = listOfGeocaches[i];
+
+      // If this geocache already has a marker, we don't need to do
+      // anything.
       if (geocache.marker != undefined) {
         continue;
       }
       geocache.marker = new L.Marker(geocache.coordinate().latlon(), {
         icon: ui._getIconFromGeocache(geocache)
       });
-
-      geocache.addEventListener('change', function(event, object, property, newValue) {
-        // this hasn't been tested yet, so calling debugger here
-        // to check variables.
-        console.debug("Property " + property + " of geocache " + object.gcid + " changed to new value " + newValue);
-        debugger;
-        if (property == 'lat' || property == 'lon') {
-          object.marker.setLatLng(object.coordinate().latlon());
-        } else if (property == 'type' || property == 'size') {
-          object.marker.icon = ui._getIconFromGeocache(geocache);
-        }
+      geocache.marker.geocache = geocache;
+      geocache.marker.on('click', function(event) {
+        var popup = L.popup()
+                    .setLatLng(event.target.getLatLng())
+                    .setContent(ui._createPopupContent(event.target.geocache))
+                    .openOn(ui.map);
       });
+      geocache.addEventListener('change', this._updateGeocacheMarker);
       markersToAdd.push(geocache.marker);
     }
     ui.markersCluster.addLayers(markersToAdd);
@@ -324,7 +323,9 @@ var ui = {
    * the archive state of the geocache.
    */
   _getIconFromGeocache: function(geocache) {
-    var id = (geocache.type && geocache.size) ? (geocache.type + '-' + geocache.size) : 'undefined';
+    var id = (geocache.type && geocache.size)
+           ? (geocache.type + '-' + geocache.size)
+           : 'undefined';
     if (ui.iconList[id]) {
       return ui.iconList[id];
     }
@@ -344,6 +345,36 @@ var ui = {
   },
 
   /**
+   * Callback that is triggered when the data for a geocache
+   * changes. Update the marker that is attached to a geocache and
+   * shown on the map.
+   */
+  _updateGeocacheMarker: function(event, object, property, newValue) {
+    if (property == 'lat' || property == 'lon') {
+      object.marker.setLatLng(object.coordinate().latlon());
+    } else if (property == 'type' || property == 'size') {
+      console.debug("Property " + property + " of geocache " + object.gcid + " changed to new value " + newValue);
+      object.marker.icon = ui._getIconFromGeocache(object);
+    }
+  },
+
+  /**
+   * Assemble the HTML code that is shown inside the geocache popup
+   * window.
+   */
+  _createPopupContent: function(geocache) {
+    var text = "<span class='gcid'>"
+             + geocache.gcid + "</span> "
+             + "<span class='title'>" + geocache.title + "</span> "
+             + "<span class='type'>(" + geocache.type + ")</span><br>"
+             + "<label>Difficulty:<label><meter min='10' max='50' value='" + geocache.difficulty + "'></meter><br>"
+             + "<label>Terrain:<label><meter min='10' max='50' value='" + geocache.terrain + "'></meter><br>"
+             + "<label>Size:<label>" + geocache.size + "<br>"// TODO
+             + "<a href='details.html#" + geocache.gcid + "'>Show details</a>";
+    return text;
+  },
+
+  /**
    * Event coming from the App.
    */
   onClearProgress: function(event) {
@@ -354,10 +385,13 @@ var ui = {
    * Event coming from the App.
    */
   onProgress: function(event, progress, message) {
-    $('#logtext').html(message + "<br>" + $('#logtext').html());
     if (progress) {
-      $('#logwindow progress').attr('max', progress[1]);
-      $('#logwindow progress').attr('value', progress[0]);
+      $('#logwindow progress')
+      .attr('max', progress[1])
+      .attr('value', progress[0]);
     }
+    var $logtext = $('#logtext');
+    $logtext.html($logtext.html() + "<br>" + message);
+    $logtext.scrollTop($logtext[0].scrollHeight);
   }
 };
