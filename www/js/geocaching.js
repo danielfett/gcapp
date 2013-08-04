@@ -47,14 +47,24 @@
   Geocaching.prototype.ensureLogin = function(username, password) {
     var dfd = new $.Deferred();
     var _this = this;
+
+    // First, check if we are logged in.
     checkLogin.call(this)
     .done(function(loggedInUser, indexDocument) {
-      if (loggedInUser == undefined || loggedInUser.toLowerCase() != username.toLowerCase()) {
-	if (loggedInUser == undefined) {
+      // We are logged in, now check if the right user is logged in.
+      if (loggedInUser == undefined
+        || loggedInUser.toLowerCase() != username.toLowerCase()) {
+
+        if (loggedInUser == undefined) {
 	  console.debug("No user is logged in.");
+          dfd.notify(undefined, "No user is logged in.");
 	} else {
-	  console.debug("User '" + loggedInUser + "' is logged in, but '" + username + "' is supposed to. Loggin in again.");
+          dfd.notify(undefined, "The wrong user is logged in.");
+	  console.debug("User '" + loggedInUser
+                       + "' is logged in, but '" + username
+                       + "' is supposed to be logged in. Logging in again.");
 	}
+
 	login.call(_this, indexDocument, username, password)
 	.done(function() {
 	  dfd.resolve("Login successful.");
@@ -62,17 +72,21 @@
 	.fail(function(msg) {
 	  dfd.reject(msg);
 	})
-	.progress(function(msg) {
-	  dfd.notify(msg);
+	.progress(function(progress, msg) {
+	  dfd.notify(progress, msg);
 	});
       } else {
 	console.debug("User was already logged in.");
+        dfd.notify(undefined, "User is logged in.");
 	dfd.resolve("User is logged in.");
       }
     })
     .fail(function(msg) {
       dfd.reject(msg);
-    });
+    })
+    .progress(function(progress, msg) {
+      dfd.notify(progress, msg);
+    });;
     return dfd.promise();
   }
 
@@ -81,17 +95,7 @@
    * finished loading and the user is logged in. You may add stuff
    * here.
    */
-  Geocaching.prototype.test = function() {
-    //this.readGeocache('c73299e3-f31b-489b-8d02-3db49e8b7816')
-    /*this.readGeocache('GC2CMHW')
-      .done(function(cache) {
-      alert(cache);
-      debugger;
-      })
-      .fail(function(msg) {
-      alert(msg);
-      });
-     */
+/*  Geocaching.prototype.test = function() {
     var _this = this;
     this.getListOfGeocaches(new Coordinate(49.777, 6.666), new Coordinate(49.750, 6.650))
     .done(function(list) {
@@ -108,7 +112,7 @@
     .fail(function(msg) {
       alert(msg);
     });
-  }
+  }*/
 
   /**
    * Retrieve a geocache from the local database and return it;
@@ -117,51 +121,79 @@
   Geocaching.prototype.getGeocache = function(id) {
     var dfd = new $.Deferred();
     var _this = this;
+
+    // Check if geocache is in the database
     Geocache.findBy('gcid', id, function(geocache) {
       if (geocache == null) {
+        // Not in DB, retrieve it.
         _this.updateGeocache(id)
         .done(function(geocache){
           dfd.resolve(geocache);
         })
         .fail(function(reason, msg){
           dfd.reject(reason, msg);
+        })
+        .progress(function(progress, msg) {
+          dfd.notify(progress, msg);
         });
       } else {
+        // Geocache is in DB, so return it.
         dfd.resolve(geocache);
       }
     });
     return dfd.promise();
   }
 
-
   /**
-   * Update a geocache (identified by the GCID) in the local database;
-   * If it is not in there, download it.
+   * Get a geocache (identified by the GCID) from the locate
+   * database.
+   *
+   * - updateIfAvailable: If the geocache is already in the local
+   *   database, update it before returning it.
+   *
+   * - downloadIfNotAvailable: If the geocache is not in the local
+   *   database, download it.
    */
-  Geocaching.prototype.updateGeocache = function(id) {
+  Geocaching.prototype.getGeocache = function(id, updateIfAvailable, downloadIfNotAvailable) {
     var dfd = new $.Deferred();
     var _this = this;
 
-    // Fetch geocache from URL
-    var url = 'http://www.geocaching.com/seek/cache_details.aspx?wp=' + id;
-    readUrl.call(this, url)
-    .done(function(doc){
-      // Check if geocache is in DB, if not create it.
-      Geocache.findBy('gcid', id, function(geocache) {
-        if (geocache == null) {
-          geocache = new Geocache();
-          persistence.add(geocache);
-        }
-        if (parseCacheDocument.call(_this, doc, geocache)) {
-          dfd.resolve(geocache);
-        } else {
-          persistence.remove(geocache);
-          dfd.fail('PREMIUM', 'Premium member cache');
-        }
-      });
-    })
-    .fail(function(msg){
-      dfd.reject(msg);
+    Geocache.findBy('gcid', id, function(geocache) {
+      if ((geocache == null && downloadIfNotAvailable) ||
+          (geocache != null && updateIfAvailable)) {
+        // The geocache is not in the local DB but we want to download
+        // it, or it is already there but we like to update it.
+
+        // Retrieve geocache document.
+        var url = 'http://www.geocaching.com/seek/cache_details.aspx?wp=' + id;
+        dfd.notify(undefined, "Retrieving Geocache " + id + "...");
+        readUrl.call(this, url)
+        .done(function(doc){
+          if (geocache == null) {
+            // Geocache was not in DB before, so add it.
+            geocache = new Geocache();
+          }
+
+          dfd.notify(undefined, "Parsing Geocache " + id + "...");
+
+          if (parseCacheDocument.call(_this, doc, geocache)) {
+            // Add the geocache to the database. If it's already
+            // there, nothing happens.
+            persistence.add(geocache);
+            dfd.notify(undefined, "Done.");
+            dfd.resolve(geocache);
+          } else {
+            dfd.reject('PREMIUM', 'Premium member cache');
+          }
+        })
+        .fail(function(msg){
+          dfd.reject(undefined, msg);
+        });
+      } else {
+        // geocache is either null or the geocache object from the
+        // database.
+        dfd.resolve(geocache);
+      }
     });
 
     return dfd.promise();
@@ -184,6 +216,7 @@
     var dist = (center.distanceTo(coordinate1)/1000)/2;
     var url = 'http://www.geocaching.com/seek/nearest.aspx?lat=' + center.lat + '&lng=' + center.lon + '&dist=' + dist;
 
+    dfd.notify(undefined, "Retrieving List of Geocaches");
     readUrl.call(this, url)
     .done(function(doc){
       fetchListRecursively.call(_this, dfd, doc, [], 0);
@@ -210,25 +243,30 @@
     var dfd = new $.Deferred();
     var _this = this;
 
-    var action = updateExisting ? this.updateGeocache : this.getGeocache;
-
-    var counter = list.length;
+    var numberOfGeocaches = list.length;
     var output = [];
+
+    dfd.notify([0, list.length], "Need to download " + list.length + " Geocaches");
+
     for (var i in list) {
-      action.call(_this, list[i])
+      this.updateGeoache(list[i], updateExisting, true)
       .done(function(cache){
+        console.debug("Downloaded geocache.");
         output.push(cache);
-        counter -= 1;
-        if (! counter) {
-          dfd.resolve(output);
-        }
       })
       .fail(function(reason, msg){
         console.debug("Failed to download cache: " + msg);
-        counter -= 1;
-        if (! counter) {
+        numberOfGeocaches -= 1;
+      })
+      .then(function() {
+        if (output.length == numberOfGeocaches) {
           dfd.resolve(output);
         }
+      })
+      .progress(function(progress, msg) {
+        // TODO: If the called function reports a progress (!=
+        // undefined), we should somehow incorporate this.
+        dfd.notify(undefined, msg);
       });
     }
 
@@ -250,6 +288,7 @@
     //
     // TODO: Check if other pages of the web
     // site load faster and then use these instead here.
+    dfd.notify(undefined, "Checking login.");
     $.ajax({
       url: 'http://www.geocaching.com',
       xhrFields: { withCredentials: true }
@@ -292,6 +331,7 @@
       }
     });
 
+    dfd.notify(undefined, "Logging in...");
     $.ajax({
       url: 'https://www.geocaching.com/login/default.aspx',
       data: formData,
@@ -309,6 +349,7 @@
         dfd.reject('Cannot determine whether login was successful.'
                   + ' Maybe you need to update this application.');
       } else {
+        dfd.notify(undefined, "Done.");
         dfd.resolve();
       }
     })
@@ -376,13 +417,6 @@
       return;
     }
     page_last = page_current;
-    console.debug("We are at page "
-		 + page_current
-		 + " of "
-		 + page_max
-		 + ", total "
-		 + count
-		 + " geocaches.");
 
     // Stop if there are too many geocaches in this area. Nobody wants
     // to wait for the retrieval of 1000 geocaches.
@@ -390,6 +424,10 @@
       dfd.reject("Found " + count + " geocaches in this area. Please select a smaller part of the map.");
       return;
     }
+
+    // Notify User
+    dfd.notify([page_current, page_max],
+               "...reading page " + page_current + " of " + page_max);
 
     // Add what we've found to the result set.
     $('.SearchResultsTable .Merge .small', doc).each(function(index, item) {
@@ -482,6 +520,11 @@
     cache.lat = coordinate.lat;
     cache.lon = coordinate.lon;
 
+    if (! cache.lat || ! cache.lon) {
+      console.error("Cache has undefined lat or lon, investigate!");
+      debugger;
+    }
+
     // Source is web site where this cache was loaded from
     cache.source = 'geocaching.com';
 
@@ -551,7 +594,7 @@
                   && _basename.call(this, $('ctl00_ContentBody_GeoNav_logTypeImage', doc).attr('src')) == '3');
 
     persistence.flush();
-    return cache;
+    return true;
   }
 
   /**

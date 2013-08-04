@@ -87,6 +87,7 @@ body {
 #left-column {
     width: 25%;
     position: absolute;
+    height: 100%;
 }
 
 #right-column {
@@ -135,6 +136,32 @@ body {
     position: absolute;
     top: 0;
     left: 0;
+}
+
+/* Log window */
+
+#logwindow {
+    position: absolute;
+    height: 5em;
+    width: 100%;
+    bottom: 0; 
+}
+
+#logwindow progress {
+    width: inherit;
+    height: 1em;
+}
+
+#logtext {
+    position: absolute;
+    top: 1em;
+    bottom: 0;
+    height: auto;
+    width: 100%;
+    border: 1px solid red;
+    overflow: auto;
+    background-color: white;
+    font-size: small;
 }
 
 /* Position and distance measurements */

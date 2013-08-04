@@ -153,6 +153,16 @@
 
   App.prototype.thisFunctionWillGetANewNameSomeDay = function() {
     var _this = this;
+
+    function fail(msg) {
+      _this.triggerEvent('clearProgress');
+      alert(msg);
+    }
+
+    function prog(progress, msg) {
+      _this.triggerEvent('progress', progress, msg);
+    }
+
     this.geocaching.ensureLogin('AGTLTestUser', '5dc60db7d5c7a86364c44091a')
     .done(function() {
       var bounds = ui.map.getBounds();
@@ -160,15 +170,19 @@
         new Coordinate(bounds.getNorth(), bounds.getWest()),
         new Coordinate(bounds.getSouth(), bounds.getEast()))
       .done(function(geocaches) {
-        _this.geocaching.downloadGeocachesInList(geocaches, false)
+        _this.geocaching.downloadGeocachesInList(geocaches, true)
         .done(function(output) {
+          _this.triggerEvent('clearProgress');
           _this.reloadGeocaches();
         })
-        .fail(function(msg){ alert(msg); });
+        .fail(fail)
+        .progress(prog);
       })
-      .fail(function(msg){ alert(msg); });
+      .fail(fail)
+      .progress(prog);
     })
-    .fail(function(msg){ alert(msg); });
+    .fail(fail)
+    .progress(prog);
   }
 
   App.prototype.reloadGeocaches = function() {

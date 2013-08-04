@@ -80,6 +80,8 @@ var ui = {
     this.app.navstate.addEventListener('distanceChanged', this.onDistanceChanged);
     this.app.navstate.addEventListener('accuracyChanged', this.onAccuracyChanged);
     this.app.addEventListener('geocachesUpdated', this.onGeocachesUpdated);
+    this.app.addEventListener('clearProgress', this.onClearProgress);
+    this.app.addEventListener('progress', this.onProgress);
 
     // We want to observe the compass here. Note that we do this in
     // the user interface because the compass is really needed only
@@ -339,5 +341,23 @@ var ui = {
       options.iconUrl = IMAGE_PATH + 'notfound.png';
     }
     return ui.iconList[id] = new L.Icon(options);
+  },
+
+  /**
+   * Event coming from the App.
+   */
+  onClearProgress: function(event) {
+    $('#logwindow progress').hide();
+  },
+
+  /**
+   * Event coming from the App.
+   */
+  onProgress: function(event, progress, message) {
+    $('#logtext').html(message + "<br>" + $('#logtext').html());
+    if (progress) {
+      $('#logwindow progress').attr('max', progress[1]);
+      $('#logwindow progress').attr('value', progress[0]);
+    }
   }
 };
