@@ -50,7 +50,9 @@ L.Marker.RotatedMarker = L.Marker.extend({
   }
 });
 
-IMAGE_PATH="../img/";
+// Hack, image path is different on device and on desktop, for
+// whatever reason. TODO: Investigate why.
+IMAGE_PATH=navigator.userAgent.match(/(iPhone|iPod|iPad|Android|BlackBerry|IEMobile)/) ? "img/" : "../img/";
 
 // the UI
 var ui = {
@@ -302,7 +304,7 @@ var ui = {
                     .setContent(ui._createPopupContent(event.target.geocache))
                     .openOn(ui.map);
       });
-      geocache.addEventListener('change', this._updateGeocacheMarker);
+      geocache.addEventListener('change', ui._updateGeocacheMarker);
       markersToAdd.push(geocache.marker);
     }
     ui.markersCluster.addLayers(markersToAdd);
@@ -354,7 +356,7 @@ var ui = {
       object.marker.setLatLng(object.coordinate().latlon());
     } else if (property == 'type' || property == 'size') {
       console.debug("Property " + property + " of geocache " + object.gcid + " changed to new value " + newValue);
-      object.marker.icon = ui._getIconFromGeocache(object);
+      object.marker.setIcon(ui._getIconFromGeocache(object));
     }
   },
 
