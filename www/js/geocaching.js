@@ -291,21 +291,16 @@
   }
 
   /**
-   * Retrieve a list of geocaches that are in the rectangle area
-   * defined by the two given coordinate. Actually, a circular area is
-   * searched that is bigger than the given rectangle.
+   * Retrieve a list of geocaches that are in a circular area around a
+   * given coordinate.
    *
    * The list that is returned can be used with downloadGeocachesInList.
    */
-  Geocaching.prototype.getListOfGeocaches = function(coordinate1, coordinate2) {
+  Geocaching.prototype.getListOfGeocachesAround = function(center, dist) {
     var dfd = new $.Deferred();
     var _this = this;
 
-    var center = new Coordinate(
-      (coordinate1.lat + coordinate2.lat)/2,
-      (coordinate1.lon + coordinate2.lon)/2);
-    var dist = (center.distanceTo(coordinate1)/1000)/2;
-    var url = 'http://www.geocaching.com/seek/nearest.aspx?lat=' + center.lat + '&lng=' + center.lon + '&dist=' + dist;
+    var url = 'http://www.geocaching.com/seek/nearest.aspx?t=k&origin_lat=' + center.lat + '&origin_long=' + center.lon + '&dist=' + dist/1000;
 
     dfd.notify(undefined, "Retrieving List of Geocaches");
     readUrl.call(this, url)
@@ -316,6 +311,22 @@
       dfd.reject(msg);
     });
     return dfd.promise();
+  }
+
+  /**
+   * Retrieve a list of geocaches that are in the rectangle area
+   * defined by the two given coordinate. Actually, a circular area is
+   * searched that is bigger than the given rectangle.
+   *
+   * The list that is returned can be used with downloadGeocachesInList.
+   */
+  Geocaching.prototype.getListOfGeocaches = function(coordinate1, coordinate2) {
+
+    var center = new Coordinate(
+      (coordinate1.lat + coordinate2.lat)/2,
+      (coordinate1.lon + coordinate2.lon)/2);
+    var dist = (center.distanceTo(coordinate1))/2;
+    return this.getListOfGeocachesAround(center, dist);
   }
 
   /**
@@ -451,6 +462,63 @@
       return;
     }
   }
+
+  /**
+   * Experimental function: Determine the exact position of a geocache
+   * by using the search function only.
+   *
+   * gcid must be in the search results when the geocaches around
+   * initialCoordinate in a radius of initialRadius are searched.
+   *
+   * TODO: We can use the direction information given in the search
+   * results to improve the next search. This way, we can save a lot
+   * of requests.
+   */
+  Geocaching.prototype.searchGeocachePosition = function(gcid, initialCoordinate, initialRadius, targetMaxRadius) {
+    var dfd = new $.Deferred();
+    var state = {foundRadius: initialRadius};
+    searchGeocachePositionHelper.call(this, dfd, state, gcid, initialCoordinate, initialRadius, targetMaxRadius);
+
+    return dfd.promise();
+  }
+
+  // .searchGeocachePosition('GC3NDZG', new Coordinate(49, 6), 5000, 100).done(function(d) { debugger; });
+  function searchGeocachePositionHelper(dfd, gcid, state, initialCoordinate, initialRadius, targetMaxRadius) {
+    var newSearchRadius = Math.sqrt(2)*initialRadius / 2;
+    console.debug("Old search radius is " + initialRadius + ", now searching in radius " + newSearchRadius);
+    var _this = this;
+    for (var dlat = -1; dlat < 2; dlat += 2) {
+      for (var dlon = -1; dlon < 2; dlon += 2) {
+        var newSearchCoordinate = initialCoordinate
+                                  .project(45 + (dlat + 1)/2 * 180 + (dlon + 1)/2 * 90,
+                                           newSearchRadius);
+        (function (newSearchCoordinate, newSearchRadius) {
+          _this.getListOfGeocachesAround(newSearchCoordinate, newSearchRadius)
+          .done(function (list) {
+            console.debug("Found " + list.length + " geocaches here.");
+            console.debug(list);
+            for (i in list) {
+              if (list[i] == gcid) {
+                if (newSearchRadius < targetMaxRadius) {
+                  dfd.resolve(newSearchCoordinate, newSearchRadius);
+                  return;
+                } else {
+                  if (state.foundRadius > newSearchRadius) {
+                    console.debug("Recursing.");
+                    // We found it in this radius. If you recurse at
+                    // this level, don't bother.
+                    state.foundRadius = newSearchRadius;
+                    searchGeocachePositionHelper.call(_this, dfd, state, gcid, newSearchCoordinate, newSearchRadius, targetMaxRadius);
+                  }
+                }
+              }
+            }
+          });
+        })(newSearchCoordinate, newSearchRadius);
+      }
+    }
+  }
+
 
   /**
    * Another wrapper for XMLHTTPRequest. Retrieves a page from

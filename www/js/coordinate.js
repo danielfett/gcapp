@@ -32,6 +32,15 @@ Number.prototype.formatDistance = function() {
   }
 };
 
+Math.radians = function(degrees) {
+  return degrees * Math.PI / 180;
+};
+
+Math.degrees = function(radians) {
+  return radians * 180 / Math.PI;
+};
+
+
 (function(window, undefined) {
 
   /**
@@ -146,6 +155,30 @@ Number.prototype.formatDistance = function() {
     } else {
       return undefined;
     }
+  }
+
+  /**
+   * Return a new coordinate that is the result of the projection of
+   * the given coordinate in a specific direction and with a specific
+   * distance.
+   *
+   * Distance is expected in meters.
+   */
+  Coordinate.prototype.project = function (bearing, distance) {
+    var rlat1 = Math.radians(this.lat);
+    var rlon1 = Math.radians(this.lon);
+    var rbearing = Math.radians(bearing);
+    var rdistance = distance / RADIUS_EARTH;
+    var rlat = Math.asin(Math.sin(rlat1) * Math.cos(rdistance) + Math.cos(rlat1) * Math.sin(rdistance) * Math.cos(rbearing));
+
+    if (Math.cos(rlat) == 0 || Math.abs(Math.cos(rlat)) < 0.00001) {
+      var rlon = rlon1;
+    } else {
+      var rlon = ((rlon1 - Math.asin(Math.sin(rbearing) * Math.sin(rdistance) / Math.cos(rlat) ) + Math.PI ) % (2*Math.PI) ) - Math.PI;
+    }
+    var lat = Math.degrees(rlat);
+    var lon = Math.degrees(rlon);
+    return new Coordinate(lat, lon, this.alt);
   }
 
   /**
