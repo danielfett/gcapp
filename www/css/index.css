@@ -50,32 +50,6 @@ body {
 
 }
 
-/* Turn on GPU support where available */
-.olTileImage {
-    -webkit-transform: translateZ(0);
-    -moz-transform: translateZ(0);
-    -o-transform: translateZ(0);
-    -ms-transform: translateZ(0);
-    transform: translateZ(0);
-    -webkit-backface-visibility: hidden;
-    -moz-backface-visibility: hidden;
-    -ms-backface-visibility: hidden;
-    backface-visibility: hidden;
-    -webkit-perspective: 1000;
-    -moz-perspective: 1000;
-    -ms-perspective: 1000;
-    perspective: 1000;
-}
-.olControlAttribution {
-    position      : absolute;
-    font-size     : 10px;
-    bottom        : 0 !important;
-    right         : 0 !important;
-    background    : rgba(0,0,0,0.1);
-    font-family   : Arial;
-    padding       : 2px 4px;
-    border-radius : 5px 0 0 0;
-}
 
 /* Landscape layout (with min-width) */
 /*@media screen and (min-aspect-ratio: 1/1) and (min-width:400px) {
@@ -171,7 +145,7 @@ body {
 
 /* Position and distance measurements */
 
-.label {
+.displayline .label {
     border-bottom: 2px solid #595959;
     line-height: 1.5em;
     font-size: 0.7em;
@@ -182,7 +156,7 @@ body {
     box-sizing: border-box;
 }
 
-.value {
+.displayline .value {
     border-bottom: 1px solid #333;
     color: #FFF;
     height: 2.5em;
@@ -231,6 +205,10 @@ body {
 }
 
 /* Popup Contents */
+
+.leaflet-popup {
+    color: #000;
+}
 
 .leaflet-popup .gcid {
     font-weight: bold;
