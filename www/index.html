@@ -21,6 +21,7 @@
     <link rel="stylesheet" href="lib/fries/css/icomoon.css">
     <link rel="stylesheet" href="lib/fries/css/stack.css">
     <link rel="stylesheet" href="lib/fries/css/sliders.css">
+    <link rel="stylesheet" href="http://fonts.googleapis.com/css?family=Roboto:400,400italic,500,500italic,700,700italic" type="text/css">
     <title>GCApp</title>
   </head>
   <body>
@@ -29,8 +30,8 @@
 	<a href="#" class="app-icon action">
           <i class="icon-fries"></i>
 	</a>
+	<h2 class="title">GCApp <span class="subtitle">The HTML5 Geocaching Application</span></h2>
       </header>
-      <h1 class="title">GCApp</h1>
       <ul class="actions pull-right">
         <li><a href="#" class="action" title="Profile" data-transition="push"><i class="icon-person"></i></a></li>
         <li><a href="#" class="action" title="Settings" data-transition="push"><i class="icon-settings"></i></a></li>
@@ -40,18 +41,18 @@
     <nav class="action-bar fixed-bottom">
       <ul class="actions flex" data-overflow="false">
         <li><a href="compose.html" class="action" title="Compose" data-transition="push"><i class="icon-new-message"></i></a></li>
-        <li><a href="contacts.html" class="action" title="Contacts" data-transition="push"><i class="icon-group"></i></a></li>
-        <li><a href="#" class="action" title="Refresh" data-ignore="true"><i class="icon-refresh"></i></a></li>
+        <li><a href="#" onclick="app.navstate.setTarget(new Coordinate(49.7777777, 6.66666666));" class="action" title="Contacts" data-transition="push"><i class="icon-group"></i></a></li>
+        <li><a href="#" onclick="app.thisFunctionWillGetANewNameSomeDay();" class="action" title="Refresh" data-ignore="true"><i class="icon-refresh"></i></a></li>
       </ul>
     </nav>
-    <div class="content inset">
+    <div class="content">
       <div id="left-column">
 	<div id="navigationwidget">
-	  <div class="displayline">
+	  <div class="displayline for-label">
 	    <div class="label left">Distance</div>
-	    <div class="label right">Accuracy</div>
+	    <div class="label right">±Position</div>
 	  </div>
-	  <div class="displayline">
+	  <div class="displayline for-value">
 	    <div class="value left" id="distance">?</div>
 	    <div class="value right" id="positionalAccuracy">?</div>
 	  </div>
@@ -60,22 +61,28 @@
 	      <img src="img/arrow_target.svg" id="compassdirection">
 	    </div>
 	  </div>
-	  <div class="displayline">
+	  <div class="displayline for-label">
 	    <div class="label left">Altitude</div>
 	    <div class="label center">Bearing</div>
-	    <div class="label right">Dir. Accuracy</div>
+	    <div class="label right">±Bearing</div>
 	  </div>
-	  <div class="displayline">
+	  <div class="displayline for-value">
 	    <div class="value left" id="altitude">?</div>
 	    <div class="value center" id="bearing">?</div>
 	    <div class="value right" id="directionalAccuracy">100%</div>
 	  </div>
-	  <div class="label displayline">Current Position</div>
-	  <div class="value displayline" id="position">?</div>
-	  <div class="label displayline">Current Target</div>
-	  <div class="value displayline" id="target">?</div>
-	  <button onclick='app.navstate.setTarget(new Coordinate(49.7777777, 6.66666666));'>Set a Target for testing</button>
-	  <button onclick='app.thisFunctionWillGetANewNameSomeDay();'>Download geocaches in current map view</button>
+	  <div class="displayline for-label">
+	    <div class="label">Current Position</div>
+	  </div>
+	  <div class="displayline for-value">
+	    <div class="value" id="position">?</div>
+	  </div>
+	  <div class="displayline for-label">
+	    <div class="label">Current Target</div>
+	  </div>
+	  <div class="displayline for-value">	  
+	    <div class="value" id="target">?</div>
+	  </div>
 	</div>
 	<div id="logwindow">
 	  <!-- TODO: progress has no visual representation on Android -->
