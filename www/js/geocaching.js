@@ -351,7 +351,7 @@
     dfd.notify([0, numberOfGeocaches], "Need to download " + list.length + " Geocaches");
 
     for (var i in list) {
-      this.getGeocache(list[i], updateExisting, true)
+      this.getGeocache(list[i].gcid, updateExisting, true)
       .done(function(cache){
         console.debug("Downloaded geocache.");
         output.push(cache);
@@ -361,9 +361,9 @@
         numberOfGeocaches -= 1;
       })
       .then(function() {
-        dfd.notify([output.length, numberOfGeocaches], "Need to download " + list.length + " Geocaches");
+        dfd.notify([output.length, numberOfGeocaches],
+                   "Still downloading " + (numberOfGeocaches - output.length) + " Geocache(s)");
         if (output.length == numberOfGeocaches) {
-          console.debug("output.length = " + output.length + " and numberOfGeocaches = " + numberOfGeocaches);
           dfd.resolve(output);
         }
       })
@@ -397,7 +397,7 @@
 
     // Nothing to see here, move on.
     if (bs.length == 0) {
-      dfd.reject("There are no geocaches in this area.");
+      dfd.resolve([]);
       return;
     }
 
@@ -425,8 +425,38 @@
                "...reading page " + page_current + " of " + page_max);
 
     // Add what we've found to the result set.
-    $('.SearchResultsTable .Merge .small', doc).each(function(index, item) {
-      wpts.push($(item).text().split('|')[1].trim());
+    $('.SearchResultsTable tr.Data', doc).each(function(index, item) {
+
+      // Default distance is null, which indicates that we have found
+      // some string, e.g., "here". We will assume that this string
+      // always indicates that the geocache is "very close" (whatever
+      // that means).
+      var distance = null,
+          direction = null;
+
+      var distText = $('td:eq(1) span', item).contents().eq(3).text();
+
+      if (distText) {
+        var result = /^([0-9.]+)([a-zA-Z]+)$/.exec(distText.trim());
+        if (result != null) {
+          if (result[2] == 'km') {
+            distance = result[1] * 1000;
+          } else if (result[2] == 'ft') {
+            distance = result[1] * 0.3048;
+          } else if (result[2] == 'mi') {
+            distance = result[1] * 1609.344;
+          } else {
+            console.error("Found unknown distance unit: " + result[2]);
+          }
+        }
+        direction = $('td:eq(1) img', item).attr('alt').trim();
+      }
+
+      wpts.push({
+        gcid: $(item).text().split('|')[1].trim(),
+        direction: direction,
+        distance: distance
+      });
     });
 
     // Proceed if there are more pages.
@@ -467,56 +497,152 @@
    * Experimental function: Determine the exact position of a geocache
    * by using the search function only.
    *
-   * gcid must be in the search results when the geocaches around
-   * initialCoordinate in a radius of initialRadius are searched.
+   * WARNING: This causes a lot of requests to the geocaching website,
+   * so use with care.
    *
-   * TODO: We can use the direction information given in the search
-   * results to improve the next search. This way, we can save a lot
-   * of requests.
+   * For testing, the following code can be used in the browser
+   * console:
+   * var a = new Geocaching();
+   * a.searchGeocachePosition('GC38WRZ', new Coordinate(49.7494, 6.69021), 300, 1).done(function(d) { debugger; }).progress(function(coord, m, t) { L.circle(coord.latlon(), m, {fill: false, weight: 1, color: ['#900', '#090', '#000'][t]}).addTo(ui.map);});
    */
-  Geocaching.prototype.searchGeocachePosition = function(gcid, initialCoordinate, initialRadius, targetMaxRadius) {
+  Geocaching.prototype.searchGeocachePosition = function(gcid, coordinate, radius, targetMaxRadius) {
     var dfd = new $.Deferred();
-    var state = {foundRadius: initialRadius};
-    searchGeocachePositionHelper.call(this, dfd, state, gcid, initialCoordinate, initialRadius, targetMaxRadius);
-
+    searchGeocachePositionHelper.call(this, dfd, gcid, coordinate, radius, targetMaxRadius);
     return dfd.promise();
   }
 
-  // .searchGeocachePosition('GC3NDZG', new Coordinate(49, 6), 5000, 100).done(function(d) { debugger; });
-  function searchGeocachePositionHelper(dfd, gcid, state, initialCoordinate, initialRadius, targetMaxRadius) {
-    var newSearchRadius = Math.sqrt(2)*initialRadius / 2;
-    console.debug("Old search radius is " + initialRadius + ", now searching in radius " + newSearchRadius);
-    var _this = this;
-    for (var dlat = -1; dlat < 2; dlat += 2) {
-      for (var dlon = -1; dlon < 2; dlon += 2) {
-        var newSearchCoordinate = initialCoordinate
-                                  .project(45 + (dlat + 1)/2 * 180 + (dlon + 1)/2 * 90,
-                                           newSearchRadius);
-        (function (newSearchCoordinate, newSearchRadius) {
-          _this.getListOfGeocachesAround(newSearchCoordinate, newSearchRadius)
-          .done(function (list) {
-            console.debug("Found " + list.length + " geocaches here.");
-            console.debug(list);
-            for (i in list) {
-              if (list[i] == gcid) {
-                if (newSearchRadius < targetMaxRadius) {
-                  dfd.resolve(newSearchCoordinate, newSearchRadius);
-                  return;
-                } else {
-                  if (state.foundRadius > newSearchRadius) {
-                    console.debug("Recursing.");
-                    // We found it in this radius. If you recurse at
-                    // this level, don't bother.
-                    state.foundRadius = newSearchRadius;
-                    searchGeocachePositionHelper.call(_this, dfd, state, gcid, newSearchCoordinate, newSearchRadius, targetMaxRadius);
-                  }
-                }
-              }
-            }
-          });
-        })(newSearchCoordinate, newSearchRadius);
-      }
+  /**
+   * Helper function that tries to find the exact coordinate for a
+   * geocache that is known to be in the search results for a given
+   * area.
+   *
+   * We have two strategies: Directed search and quadsection.
+   *
+   * Directed search: If the geocache is in the search results, it is
+   * likely to have a direction and distance attached there. So we
+   * search in the given direction to find the geocache.
+   *
+   * Quadsection: The function searches for geocaches starting from
+   * points located in four directions (NE, NW, SE, SW) from the
+   * initial coordinate. The distance of these points from the initial
+   * coordinate is the same as the radius for the new searches, namely
+   * sqrt(2)*initialRadius/2.
+   *
+   * If one of both strategies finds the geocache, the search is
+   * repeated at that place until the search radius is lower than the
+   * targetMaxRadius, in which case the function returns (via
+   * $.Deferred) the coordinate where the geocache was found.
+   */
+  function searchGeocachePositionHelper(dfd, gcid, coordinate, radius, targetMaxRadius, mustBeThere, state) {
+    var _this = this,
+        newSearchCoordinate,
+        newSearchRadius;
+
+    // We use state to track some information about the recursion.
+    if (! state) {
+      state = {
+        foundRadius: radius,
+        requests: 0
+      };
     }
+
+    // Fetch the geocaches at (coordinate) in the given (radius).
+    state.requests++;
+    _this.getListOfGeocachesAround(coordinate, radius)
+    .done(function (list) {
+      console.debug("Found " + list.length + " geocaches here.");
+      for (var i in list) {
+        // Skip other geocaches
+        if (list[i].gcid != gcid) {
+          continue;
+        }
+
+        // We have found it...
+        if (radius < targetMaxRadius) {
+          console.debug("Found geocache at coordinate "
+                       + coordinate.toString()
+                       + " in a radius of" + radius + "m.");
+          dfd.notify(coordinate, radius, 2);
+          dfd.resolve(coordinate, radius, state);
+          return;
+        }
+
+        dfd.notify(coordinate, radius, 1);
+
+        // See below.
+        state.foundRadius = Math.min(radius, state.foundRadius);
+
+        // We found our geocache, but it is just shown as being
+        // "here". That doesn't help, so we do quadsection unless the
+        // radius was already small enough.
+        if (list[i].distance == null) {
+          // We are right on the spot? Let's see. We set a small
+          // search radius and then do quadsection.
+          newSearchRadius = Math.min(20, Math.sqrt(2)*radius/2);
+
+          // We are working asynchronously here. Another branch of the
+          // search may have advanced past the radius that we are
+          // about to search, so we abort in this case.
+          if (state.foundRadius < newSearchRadius) {
+            console.debug("Aborting");
+            return;
+          }
+
+          console.debug("Searching Geocache: Using quadsection, new radius 4x" + newSearchRadius);
+
+          // Increment the angle so that we search in 45, 135, 225 and 315
+          // degrees from the original coordinate.
+          for (var angle = 45; angle < 45 + 360; angle += 90) {
+            newSearchCoordinate = coordinate
+                                  .project(angle, newSearchRadius);
+            searchGeocachePositionHelper.call(_this, dfd, gcid, newSearchCoordinate,
+                                              newSearchRadius, targetMaxRadius, false, state);
+          }
+          // we have now started four requests to search in the four
+          // adjacent areas, so we are done here.
+          return;
+        }
+
+        // Now we are in the situation that we have found the geocache
+        // we were looking for on the map, and it has some nice
+        // direction and distance information attached. We do the
+        // directed search.
+
+        var direction = {
+          'N': 0,
+          'NW': 45,
+          'W': 90,
+          'SW': 135,
+          'S': 180,
+          'SE': 225,
+          'E': 270,
+          'NE': 315}[list[i].direction];
+
+        newSearchCoordinate = coordinate.project(direction, list[i].distance);
+
+        // We calculate the radius using an approximation. We use the
+        // length of an arc with 45 degrees in a circle with diameter
+        // (distance).
+        newSearchRadius = Math.radians(45) * list[i].distance;
+        console.debug("Searching Geocache: Proceeding " + list[i].distance
+                     + "m in direction " + direction
+                     + "deg, using new radius " + newSearchRadius);
+        searchGeocachePositionHelper.call(_this, dfd, gcid, newSearchCoordinate,
+                                          newSearchRadius, targetMaxRadius, true, state);
+        return;
+      }
+
+      // If we arrive here, we have not found the geocache. This may
+      // be fine (during quadsection), but it may also indicate an
+      // error (during directed search). Thus, in the second case, we
+      // abort.
+
+      dfd.notify(coordinate, radius, 0);
+      if (mustBeThere) {
+        console.error("Did not find geocache!");
+        dfd.reject();
+      }
+    });
   }
 
 
